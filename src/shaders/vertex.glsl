@@ -1,4 +1,4 @@
-export const vShaderCode = `#version 300 es
+#version 300 es
 precision mediump float;
 
 in vec2 vPos;
@@ -16,4 +16,4 @@ void main(){
   
   vOutColor = vColor;
 }
-`
+

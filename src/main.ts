@@ -3,7 +3,14 @@ import { showError } from "./helpers.ts";
 import { vShaderCode } from "./vertexShader.ts";
 import { fShaderCode } from "./fragmentShader.ts";
 
-function initGame(){
+async function loadText(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to load ${url}`);
+  return await response.text();
+}
+
+
+function initGame(data){
   const canvas = document.getElementById("demo-canvas") as HTMLCanvasElement | null;
   if (!canvas){
     showError("Canvas nope");
@@ -17,8 +24,9 @@ function initGame(){
 
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
+  console.log(data["vertexCode"]);
 
-  var game = new Game(gl, canvas.width, canvas.height, vShaderCode, fShaderCode);
+  var game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);
   let lastTime = performance.now();
   let dt : number;
   function step(){
@@ -37,9 +45,12 @@ function initGame(){
   step();
 }
 
-
 try {
-  initGame()
+  (async () => {
+    const vertexCode = await loadText("src/shaders/vertex.glsl");
+    const fragmentCode = await loadText("src/shaders/fragment.glsl");
+    initGame({ vertexCode, fragmentCode });
+  })();
 } catch (e) {
   console.log(e);
   showError("There was a problem with the game initialization");

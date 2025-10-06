@@ -174,41 +174,13 @@ var Game = class {
   }
 };
 
-// src/vertexShader.ts
-var vShaderCode = `#version 300 es
-precision mediump float;
-
-in vec2 vPos;
-in vec3 vColor;
-
-uniform vec2 canvas_size;
-uniform vec2 shapeLocation;
-uniform float shapeSize;
-
-out vec3 vOutColor;
-void main(){
-  vec2 fPosition = vPos*shapeSize + shapeLocation;
-  fPosition = 2.0f*(fPosition/canvas_size) - 1.0f;
-  gl_Position = vec4(fPosition, 0.0, 1.0);
-  
-  vOutColor = vColor;
-}
-`;
-
-// src/fragmentShader.ts
-var fShaderCode = `#version 300 es
-precision mediump float;
-
-in vec3 vOutColor;
-
-out vec4 outputColor;
-void main(){
-  outputColor = vec4(vOutColor, 1.0f);
-}
-`;
-
 // src/main.ts
-function initGame() {
+async function loadText(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to load ${url}`);
+  return await response.text();
+}
+function initGame(data) {
   const canvas = document.getElementById("demo-canvas");
   if (!canvas) {
     showError("Canvas nope");
@@ -221,7 +193,8 @@ function initGame() {
   }
   canvas.width = canvas.clientWidth;
   canvas.height = canvas.clientHeight;
-  var game = new Game(gl, canvas.width, canvas.height, vShaderCode, fShaderCode);
+  console.log(data["vertexCode"]);
+  var game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);
   let lastTime = performance.now();
   let dt;
   function step() {
@@ -236,7 +209,11 @@ function initGame() {
   step();
 }
 try {
-  initGame();
+  (async () => {
+    const vertexCode = await loadText("src/shaders/vertex.glsl");
+    const fragmentCode = await loadText("src/shaders/fragment.glsl");
+    initGame({ vertexCode, fragmentCode });
+  })();
 } catch (e) {
   console.log(e);
   showError("There was a problem with the game initialization");
