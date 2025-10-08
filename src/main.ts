@@ -9,6 +9,7 @@ async function loadText(url: string): Promise<string> {
   return await response.text();
 }
 
+let game : Game;
 
 function initGame(data){
   const canvas = document.getElementById("demo-canvas") as HTMLCanvasElement | null;
@@ -26,9 +27,10 @@ function initGame(data){
   canvas.height = canvas.clientHeight;
   console.log(data["vertexCode"]);
 
-  var game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);
+  game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);
   let lastTime = performance.now();
   let dt : number;
+
   function step(){
     const now = performance.now();
     dt = (now-lastTime)/5;
@@ -40,7 +42,6 @@ function initGame(data){
     game.draw(gl);
 
     requestAnimationFrame(step);
-
   }
   step();
 }
@@ -56,9 +57,16 @@ try {
   showError("There was a problem with the game initialization");
 }
 
+document.addEventListener("keydown", (e) => {
+  game.handleKeyDown(e);
+});
+document.addEventListener("keyup", (e) => {
+  game.handleKeyUp(e);
+});
 
-
-
+document.addEventListener("mousemove", (e) => {
+  game.handleMouseMovement(e);
+});
 
 
 

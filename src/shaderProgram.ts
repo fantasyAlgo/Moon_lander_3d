@@ -36,6 +36,11 @@ export class ShaderProgram {
     gl.attachShader(triangleShaderProgram, fragmentShader);
     gl.attachShader(triangleShaderProgram, vertexShader);
     gl.linkProgram(triangleShaderProgram);
+    if (!gl.getProgramParameter(triangleShaderProgram, gl.LINK_STATUS)) {
+      const errorMessage = gl.getProgramInfoLog(triangleShaderProgram);
+      showError(`Failed to link GPU program: ${errorMessage}`);
+      throw new Error("Failed to link program");
+    }
 
     this.id = triangleShaderProgram;
   }
