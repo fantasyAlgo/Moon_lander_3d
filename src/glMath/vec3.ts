@@ -38,6 +38,14 @@ export class Vec3 {
   static mult(v1 : Vec3, v2 : Vec3) : Vec3{
     return new Vec3(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z);
   }
+  static multScalar(v1 : Vec3, s : number){
+    return new Vec3(v1.x*s, v1.y*s, v1.z*s);
+  }
+  static div(v1 : Vec3, v2 : Vec3) : Vec3{
+    if (v2.x == 0 || v2.y == 0 || v2.z == 0) throw new Error("v2 has some 0");
+    return new Vec3(v1.x / v2.x, v1.y / v2.y, v1.z / v2.z);
+  }
+
 
   static clone(v1 : Vec3) : Vec3 {
     return new Vec3(v1.x, v1.y, v1.z);

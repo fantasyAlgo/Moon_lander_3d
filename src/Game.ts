@@ -5,6 +5,7 @@ import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, rbgTriangleColors, TA
 import {Mat4x4 } from "./glMath/mat4x4.ts"
 import {Vec3 } from "./glMath/vec3.ts"
 import {Vec4 } from "./glMath/vec4.ts"
+import { Quat } from "./glMath/Quat.ts";
 
 
 
@@ -19,6 +20,7 @@ export class Game {
   cubeVao : WebGLVertexArrayObject;
   tableVao : WebGLVertexArrayObject;
   camera_pos : Vec3;
+  total_time: number;
 
 
   width : number;
@@ -30,6 +32,7 @@ export class Game {
   constructor(gl : WebGL2RenderingContext, width: number, height : number, vertexCode : string, fragmentCode : string){
     this.width = width;
     this.height = height;
+    this.total_time = 0.0
 
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -91,7 +94,8 @@ export class Game {
     */
 
   }
-  update(dt : Number) {
+  update(dt : number) {
+    this.total_time += dt;
   }
 
   handleKeyDown(e){
@@ -126,25 +130,31 @@ export class Game {
     gl.enable(gl.CULL_FACE);
     this.shaderProgram.bind(gl);
 
-    const matWorld = Mat4x4.identity();
+    const rotMatrix = Mat4x4.fromQuat(Quat.makeFromAxis(this.total_time/100.0, Vec3.make(0.0, 1.0, 0.0)));
+    let matWorld = Mat4x4.identity();
+    matWorld = Mat4x4.multMatrix(matWorld, rotMatrix);
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(Vec3.make(1, 0.5, 1)));
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(Vec3.make(Math.cos(this.total_time/100)*0.0, 0.0, -10)));
+    //console.log("before: ", matWorld);
+    //console.log("after: ", matWorld);
+
     const matView = Mat4x4.LookAtRH(
       this.camera_pos,
-      Vec3.make(0, 0, 0),
+      Vec3.add(this.camera_pos, Vec3.make(0, 0, -1)),
       Vec3.make(0, 1, 0)
     );
-    console.log("matView values:", matView.values);
+
     const matProj = Mat4x4.perspective(
       this.width/this.height,
       1.396263,
       0.1, 100.0
     );
-    console.log("matProj values:", matProj.values);
 
 
-    const matViewProj = Mat4x4.multMatrix(matProj, matView);
+    const matViewProj = Mat4x4.multMatrix(matView, matProj);
 
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matWorld"), false, matWorld.values);
-    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matViewProj"), false, Mat4x4.T(matViewProj).values);
+    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matViewProj"), false, matViewProj.values);
 
     gl.bindVertexArray(this.cubeVao);
     gl.drawElements(gl.TRIANGLES, CUBE_INDICES.length, gl.UNSIGNED_SHORT, 0);

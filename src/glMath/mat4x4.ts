@@ -1,4 +1,5 @@
 
+import { Quat } from "./Quat";
 import { Vec3 } from "./vec3";
 import { Vec4 } from "./vec4";
 
@@ -59,7 +60,8 @@ export class Mat4x4 {
     let values : number[] = []
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
-        const v = m1.get(i, 0)*m2.get(0, j) + m1.get(i, 1)*m2.get(1, j) + m1.get(i, 2)*m2.get(2, j) + m1.get(i, 3)*m2.get(3, j);
+        //const v = m1.get(i, 0)*m2.get(0, j) + m1.get(i, 1)*m2.get(1, j) + m1.get(i, 2)*m2.get(2, j) + m1.get(i, 3)*m2.get(3, j);
+        const v = m1.get(0, i)*m2.get(j, 0) + m1.get(1, i)*m2.get(j, 1) + m1.get(2, i)*m2.get(j, 2) + m1.get(3, i)*m2.get(j, 3);
         values.push(v);
       }
     }
@@ -116,5 +118,67 @@ export class Mat4x4 {
     }
     return new Mat4x4(new Float32Array(values));
   }
+
+  static transpose( pos : Vec3) : Mat4x4 {
+    return new Mat4x4(new Float32Array([
+      1.0, 0.0, 0.0, 0.0,
+      0,   1,   0,   0,
+      0,   0,   1,   0,
+      pos.x, pos.y, pos.z, 1.0
+    ]));
+  }
+  static scale( scale: Vec3) : Mat4x4 {
+    return new Mat4x4(new Float32Array([
+      scale.x, 0,       0,       0,
+      0,       scale.y, 0,       0,
+      0,       0,       scale.z, 0,
+      0,       0,       0,       1,
+    ]));
+  }
+
+
+
+
+  static fromQuat( q : Quat ) : Mat4x4 {
+    //console.log("quat: ", q);
+    let x = q.vec.x;
+    let y = q.vec.y;
+    let z = q.vec.z;
+    let w = q.r;
+
+    let x2 = x + x;
+
+    let y2 = y + y;
+
+    let z2 = z + z;
+
+    let xx = x * x2;
+
+    let yx = y * x2;
+
+    let yy = y * y2;
+
+    let zx = z * x2;
+
+    let zy = z * y2;
+
+    let zz = z * z2;
+
+    let wx = w * x2;
+
+    let wy = w * y2;
+
+    let wz = w * z2;
+    return new Mat4x4(new Float32Array([
+      1 - yy - zz, yx + wz, zx - wy, 0, 
+      yx-wz, 1-xx-zz,  zy+wx, 0, 
+      zx+wy, zy-wx, 1 - xx - yy,  0,
+      0, 0, 0, 1
+    ]));
+  }
+
+
+
+
 
 }

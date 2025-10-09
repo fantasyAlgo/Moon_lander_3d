@@ -475,6 +475,13 @@ var Vec3 = class _Vec3 {
   static mult(v1, v2) {
     return new _Vec3(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z);
   }
+  static multScalar(v1, s) {
+    return new _Vec3(v1.x * s, v1.y * s, v1.z * s);
+  }
+  static div(v1, v2) {
+    if (v2.x == 0 || v2.y == 0 || v2.z == 0) throw new Error("v2 has some 0");
+    return new _Vec3(v1.x / v2.x, v1.y / v2.y, v1.z / v2.z);
+  }
   static clone(v1) {
     return new _Vec3(v1.x, v1.y, v1.z);
   }
@@ -565,7 +572,7 @@ var Mat4x4 = class _Mat4x4 {
     let values = [];
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
-        const v = m1.get(i, 0) * m2.get(0, j) + m1.get(i, 1) * m2.get(1, j) + m1.get(i, 2) * m2.get(2, j) + m1.get(i, 3) * m2.get(3, j);
+        const v = m1.get(0, i) * m2.get(j, 0) + m1.get(1, i) * m2.get(j, 1) + m1.get(2, i) * m2.get(j, 2) + m1.get(3, i) * m2.get(j, 3);
         values.push(v);
       }
     }
@@ -658,6 +665,123 @@ var Mat4x4 = class _Mat4x4 {
     }
     return new _Mat4x4(new Float32Array(values));
   }
+  static transpose(pos) {
+    return new _Mat4x4(new Float32Array([
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      pos.x,
+      pos.y,
+      pos.z,
+      1
+    ]));
+  }
+  static scale(scale) {
+    return new _Mat4x4(new Float32Array([
+      scale.x,
+      0,
+      0,
+      0,
+      0,
+      scale.y,
+      0,
+      0,
+      0,
+      0,
+      scale.z,
+      0,
+      0,
+      0,
+      0,
+      1
+    ]));
+  }
+  static fromQuat(q) {
+    let x = q.vec.x;
+    let y = q.vec.y;
+    let z = q.vec.z;
+    let w = q.r;
+    let x2 = x + x;
+    let y2 = y + y;
+    let z2 = z + z;
+    let xx = x * x2;
+    let yx = y * x2;
+    let yy = y * y2;
+    let zx = z * x2;
+    let zy = z * y2;
+    let zz = z * z2;
+    let wx = w * x2;
+    let wy = w * y2;
+    let wz = w * z2;
+    return new _Mat4x4(new Float32Array([
+      1 - yy - zz,
+      yx + wz,
+      zx - wy,
+      0,
+      yx - wz,
+      1 - xx - zz,
+      zy + wx,
+      0,
+      zx + wy,
+      zy - wx,
+      1 - xx - yy,
+      0,
+      0,
+      0,
+      0,
+      1
+    ]));
+  }
+};
+
+// src/glMath/Quat.ts
+var Quat = class _Quat {
+  r;
+  vec;
+  d;
+  constructor(r, vector) {
+    this.r = r;
+    this.vec = vector;
+    this.d = Math.sqrt(r * r + this.vec.x * this.vec.x + this.vec.y * this.vec.y + this.vec.z * this.vec.z);
+  }
+  normVectorPart() {
+    this.vec = Vec3.normalize(this.vec);
+  }
+  conjugate() {
+    return new _Quat(this.r, Vec3.make(-this.vec.x, -this.vec.y, -this.vec.z));
+  }
+  static make(r, vector) {
+    return new _Quat(r, vector);
+  }
+  static add(q1, q2) {
+    return new _Quat(q1.r + q2.r, Vec3.add(q1.vec, q2.vec));
+  }
+  static normalize(q1) {
+    if (q1.d == 0) throw new Error("quat distance is 0");
+    return new _Quat(q1.r / q1.d, Vec3.make(q1.vec.x / q1.d, q1.vec.y / q1.d, q1.vec.z / q1.d));
+  }
+  static hamiltonProduct(q1, q2) {
+    const r = q1.r * q2.r - q1.vec.x * q2.vec.x - q1.vec.y * q2.vec.y - q1.vec.z * q2.vec.z;
+    const vecX = q1.r * q2.vec.x - q1.vec.x * q2.r - q1.vec.y * q2.vec.z - q1.vec.z * q2.vec.y;
+    const vecY = q1.r * q2.vec.y - q1.vec.x * q2.vec.z - q1.vec.y * q2.r - q1.vec.z * q2.vec.x;
+    const vecZ = q1.r * q2.vec.z - q1.vec.x * q2.vec.y - q1.vec.y * q2.vec.x - q1.vec.z * q2.r;
+    return new _Quat(r, Vec3.make(vecX, vecY, vecZ));
+  }
+  static makeFromAxis(angle, axis) {
+    const nAxis = Vec3.normalize(axis);
+    const r = Math.cos(angle / 2);
+    let vec = Vec3.multScalar(nAxis, Math.sin(angle / 2));
+    return _Quat.normalize(new _Quat(r, vec));
+  }
 };
 
 // src/Game.ts
@@ -669,12 +793,14 @@ var Game = class {
   cubeVao;
   tableVao;
   camera_pos;
+  total_time;
   width;
   height;
   shaderProgram;
   constructor(gl, width, height, vertexCode, fragmentCode) {
     this.width = width;
     this.height = height;
+    this.total_time = 0;
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -708,6 +834,7 @@ var Game = class {
     this.camera_pos = Vec3.make(0, 0, 5);
   }
   update(dt) {
+    this.total_time += dt;
   }
   handleKeyDown(e) {
     if (e.key == "w")
@@ -731,23 +858,25 @@ var Game = class {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     this.shaderProgram.bind(gl);
-    const matWorld = Mat4x4.identity();
+    const rotMatrix = Mat4x4.fromQuat(Quat.makeFromAxis(this.total_time / 100, Vec3.make(0, 1, 0)));
+    let matWorld = Mat4x4.identity();
+    matWorld = Mat4x4.multMatrix(matWorld, rotMatrix);
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(Vec3.make(1, 0.5, 1)));
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(Vec3.make(Math.cos(this.total_time / 100) * 0, 0, -10)));
     const matView = Mat4x4.LookAtRH(
       this.camera_pos,
-      Vec3.make(0, 0, 0),
+      Vec3.add(this.camera_pos, Vec3.make(0, 0, -1)),
       Vec3.make(0, 1, 0)
     );
-    console.log("matView values:", matView.values);
     const matProj = Mat4x4.perspective(
       this.width / this.height,
       1.396263,
       0.1,
       100
     );
-    console.log("matProj values:", matProj.values);
-    const matViewProj = Mat4x4.multMatrix(matProj, matView);
+    const matViewProj = Mat4x4.multMatrix(matView, matProj);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matWorld"), false, matWorld.values);
-    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, Mat4x4.T(matViewProj).values);
+    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
     gl.bindVertexArray(this.cubeVao);
     gl.drawElements(gl.TRIANGLES, CUBE_INDICES.length, gl.UNSIGNED_SHORT, 0);
     console.log("error: ", gl.getError());
