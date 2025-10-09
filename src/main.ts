@@ -2,6 +2,7 @@ import { Game } from "./Game.ts";
 import { showError } from "./helpers.ts";
 import { vShaderCode } from "./vertexShader.ts";
 import { fShaderCode } from "./fragmentShader.ts";
+import { Mat4x4 } from "./glMath/mat4x4.ts";
 
 async function loadText(url: string): Promise<string> {
   const response = await fetch(url);
@@ -45,6 +46,8 @@ function initGame(data){
   }
   step();
 }
+
+
 
 try {
   (async () => {

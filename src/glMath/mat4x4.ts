@@ -24,10 +24,23 @@ export class Mat4x4 {
   }
 
 
-  static identity() : Mat4x4 {
-    return new Mat4x4(new Float32Array([1, 0, 0, 0,
-                                        0, 1, 0, 0,
-                                        0, 0, 1, 0,
+  determinant( i : number = 0, jNotToCheck : number[] = []) : number{
+    if (i >= 4) return 1.0;
+    let det = 0;
+    for (let k = 0; k < 4; k++) {
+      if (!jNotToCheck.includes(k)){
+        const v = this.get(k, i)*this.determinant(i+1, [k, ...jNotToCheck]);
+        det = det + ((i+k)%2 == 0 ? 1 : -1)*v;
+      }
+    }
+    return det;
+  }
+
+
+  static identity( v : number = 1.0) : Mat4x4 {
+    return new Mat4x4(new Float32Array([v, 0, 0, 0,
+                                        0, v, 0, 0,
+                                        0, 0, v, 0,
                                         0, 0, 0, 1]));
   }
   static create(val : number = 0) : Mat4x4 {
@@ -137,8 +150,6 @@ export class Mat4x4 {
   }
 
 
-
-
   static fromQuat( q : Quat ) : Mat4x4 {
     //console.log("quat: ", q);
     let x = q.vec.x;
@@ -170,7 +181,7 @@ export class Mat4x4 {
 
     let wz = w * z2;
     return new Mat4x4(new Float32Array([
-      1 - yy - zz, yx + wz, zx - wy, 0, 
+      1-yy-zz, yx + wz, zx - wy, 0, 
       yx-wz, 1-xx-zz,  zy+wx, 0, 
       zx+wy, zy-wx, 1 - xx - yy,  0,
       0, 0, 0, 1

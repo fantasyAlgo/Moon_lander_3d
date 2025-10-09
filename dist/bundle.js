@@ -512,19 +512,30 @@ var Mat4x4 = class _Mat4x4 {
     for (let i = 0; i < 16; i++)
       this.values[i] *= n;
   }
-  static identity() {
+  determinant(i = 0, jNotToCheck = []) {
+    if (i >= 4) return 1;
+    let det = 0;
+    for (let k = 0; k < 4; k++) {
+      if (!jNotToCheck.includes(k)) {
+        const v = this.get(k, i) * this.determinant(i + 1, [k, ...jNotToCheck]);
+        det = det + ((i + k) % 2 == 0 ? 1 : -1) * v;
+      }
+    }
+    return det;
+  }
+  static identity(v = 1) {
     return new _Mat4x4(new Float32Array([
-      1,
+      v,
       0,
       0,
       0,
       0,
-      1,
+      v,
       0,
       0,
       0,
       0,
-      1,
+      v,
       0,
       0,
       0,
@@ -784,6 +795,28 @@ var Quat = class _Quat {
   }
 };
 
+// src/Shape.ts
+var Shape = class {
+  constructor(pos, scale, rotationAxis, rotationAngle, vao, numIndices) {
+    this.pos = pos;
+    this.scale = scale;
+    this.rotationAxis = rotationAxis;
+    this.rotationAngle = rotationAngle;
+    this.vao = vao;
+    this.numIndices = numIndices;
+  }
+  matWorld = Mat4x4.identity();
+  draw(gl, matWorldUniform) {
+    let matWorld = Mat4x4.fromQuat(Quat.makeFromAxis(this.rotationAngle, this.rotationAxis));
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(this.scale));
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
+    gl.uniformMatrix4fv(matWorldUniform, false, matWorld.values);
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+  }
+};
+
 // src/Game.ts
 var Game = class {
   cubeVertices;
@@ -794,6 +827,7 @@ var Game = class {
   tableVao;
   camera_pos;
   total_time;
+  shapes;
   width;
   height;
   shaderProgram;
@@ -801,6 +835,7 @@ var Game = class {
     this.width = width;
     this.height = height;
     this.total_time = 0;
+    this.camera_pos = Vec3.make(0, 1, 5);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -831,7 +866,10 @@ var Game = class {
     }
     console.log("error: ", gl.getError());
     gl.viewport(0, 0, this.width, this.height);
-    this.camera_pos = Vec3.make(0, 0, 5);
+    const UP_VEC = Vec3.make(0, 1, 0);
+    this.shapes = [];
+    this.shapes.push(new Shape(Vec3.make(0, 1, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(2, 1, -1), Vec3.make(1, 1, 1), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
   }
   update(dt) {
     this.total_time += dt;
@@ -856,13 +894,7 @@ var Game = class {
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
     this.shaderProgram.bind(gl);
-    const rotMatrix = Mat4x4.fromQuat(Quat.makeFromAxis(this.total_time / 100, Vec3.make(0, 1, 0)));
-    let matWorld = Mat4x4.identity();
-    matWorld = Mat4x4.multMatrix(matWorld, rotMatrix);
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(Vec3.make(1, 0.5, 1)));
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(Vec3.make(Math.cos(this.total_time / 100) * 0, 0, -10)));
     const matView = Mat4x4.LookAtRH(
       this.camera_pos,
       Vec3.add(this.camera_pos, Vec3.make(0, 0, -1)),
@@ -871,15 +903,15 @@ var Game = class {
     const matProj = Mat4x4.perspective(
       this.width / this.height,
       1.396263,
-      0.1,
-      100
+      0.01,
+      200
     );
     const matViewProj = Mat4x4.multMatrix(matView, matProj);
-    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matWorld"), false, matWorld.values);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.bindVertexArray(this.cubeVao);
-    gl.drawElements(gl.TRIANGLES, CUBE_INDICES.length, gl.UNSIGNED_SHORT, 0);
-    console.log("error: ", gl.getError());
+    const matWorldLoc = this.shaderProgram.getUniform(gl, "matWorld");
+    this.shapes.forEach((element) => {
+      element.draw(gl, matWorldLoc);
+    });
   }
 };
 

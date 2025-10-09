@@ -6,6 +6,7 @@ import {Mat4x4 } from "./glMath/mat4x4.ts"
 import {Vec3 } from "./glMath/vec3.ts"
 import {Vec4 } from "./glMath/vec4.ts"
 import { Quat } from "./glMath/Quat.ts";
+import { Shape } from "./Shape.ts";
 
 
 
@@ -21,6 +22,7 @@ export class Game {
   tableVao : WebGLVertexArrayObject;
   camera_pos : Vec3;
   total_time: number;
+  shapes : Shape[];
 
 
   width : number;
@@ -33,6 +35,7 @@ export class Game {
     this.width = width;
     this.height = height;
     this.total_time = 0.0
+    this.camera_pos = Vec3.make(0, 1, 5);
 
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -71,27 +74,15 @@ export class Game {
     }
     console.log("error: ", gl.getError());
 
-
-
     gl.viewport(0, 0, this.width, this.height);
 
-    this.camera_pos = Vec3.make(0, 0, 5);
+    const UP_VEC = Vec3.make(0, 1, 0);
+    this.shapes = [];
+    //this.shapes.push(new Shape(Vec3.make(0, 0.0, 0), Vec3.make(1, 0.1, 1), UP_VEC, 0, this.tableVao, TABLE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(0, 1.0, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(2, 1.0, -1), Vec3.make(1.0, 1.0, 1.0), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
 
-    /*
-    this.shaderProgram.bind(gl);
-    gl.enableVertexAttribArray(vPosLoc);
-    gl.enableVertexAttribArray(vColorLoc);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.triangleGeoBuffer);
-    gl.vertexAttribPointer(
-      vPosLoc, 2, gl.FLOAT, false, 2*Float32Array.BYTES_PER_ELEMENT, 0
-    );
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.rgbTriangleBuffer);
-    gl.vertexAttribPointer(
-      vColorLoc, 3, gl.UNSIGNED_BYTE, true, 0, 0
-    );
-    */
 
   }
   update(dt : number) {
@@ -126,55 +117,41 @@ export class Game {
 
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
     this.shaderProgram.bind(gl);
-
-    const rotMatrix = Mat4x4.fromQuat(Quat.makeFromAxis(this.total_time/100.0, Vec3.make(0.0, 1.0, 0.0)));
-    let matWorld = Mat4x4.identity();
-    matWorld = Mat4x4.multMatrix(matWorld, rotMatrix);
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(Vec3.make(1, 0.5, 1)));
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(Vec3.make(Math.cos(this.total_time/100)*0.0, 0.0, -10)));
-    //console.log("before: ", matWorld);
-    //console.log("after: ", matWorld);
 
     const matView = Mat4x4.LookAtRH(
       this.camera_pos,
       Vec3.add(this.camera_pos, Vec3.make(0, 0, -1)),
       Vec3.make(0, 1, 0)
     );
-
     const matProj = Mat4x4.perspective(
       this.width/this.height,
       1.396263,
-      0.1, 100.0
+      0.01, 200.0
     );
 
-
     const matViewProj = Mat4x4.multMatrix(matView, matProj);
-
-    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matWorld"), false, matWorld.values);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matViewProj"), false, matViewProj.values);
 
-    gl.bindVertexArray(this.cubeVao);
-    gl.drawElements(gl.TRIANGLES, CUBE_INDICES.length, gl.UNSIGNED_SHORT, 0);
-    console.log("error: ", gl.getError());
-
-
-    
-
+    const matWorldLoc = this.shaderProgram.getUniform(gl, "matWorld");
+    this.shapes.forEach(element => {
+      element.draw(gl, matWorldLoc);
+    });
     /*
-
-    gl.uniform2f(this.shaderProgram.getUniform(gl, "canvas_size"), this.width, this.height);
-    gl.uniform2f(this.shaderProgram.getUniform(gl, "shapeLocation"), 200, 400);
-    gl.uniform1f(this.shaderProgram.getUniform(gl, "shapeSize"), 200);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-    gl.uniform2f(this.shaderProgram.getUniform(gl, "shapeLocation"), 400, 500);
-    gl.uniform1f(this.shaderProgram.getUniform(gl, "shapeSize"), 200);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-
+    
+    const rotMatrix = Mat4x4.fromQuat(Quat.makeFromAxis(0.7, Vec3.make(1.0, 1.0, 0.0)));
+    let matWorld = Mat4x4.identity();
+    matWorld = Mat4x4.multMatrix(matWorld, rotMatrix);
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(Vec3.make(1, 0.5, 1)));
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(Vec3.make(Math.cos(this.total_time/100)*0.0, 0.0, 0)));
+    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matWorld"), false, matWorld.values);
+    gl.bindVertexArray(this.tableVao);
+    gl.drawElements(gl.TRIANGLES, TABLE_INDICES.length, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
     */
+
   }
 
 }
