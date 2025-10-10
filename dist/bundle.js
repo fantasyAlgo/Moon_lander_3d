@@ -407,6 +407,9 @@ var Vec4 = class _Vec4 {
     this.w = w;
     this.distance = Math.sqrt(x * x + y * y + z * z + w * w);
   }
+  convertToVec3() {
+    return Vec3.make(this.x, this.y, this.z);
+  }
   static normalize(v) {
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");
     return new _Vec4(v.x / v.distance, v.y / v.distance, v.z / v.distance, v.w / v.distance);
@@ -417,6 +420,9 @@ var Vec4 = class _Vec4 {
     const z = v1.z - v1.z;
     const w = v1.w - v1.w;
     return Math.sqrt(x * x + y * y + z * z + w * w);
+  }
+  static make(x, y, z, w) {
+    return new _Vec4(x, y, z, w);
   }
   static add(v1, v2) {
     return new _Vec4(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w + v2.w);
@@ -840,6 +846,82 @@ var Shape = class {
   }
 };
 
+// src/glMath/Vec2.ts
+var Vec2 = class _Vec2 {
+  x;
+  y;
+  distance;
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.distance = Math.sqrt(x * x + y * y);
+  }
+  clamp(xMin, xMax, yMin, yMax) {
+    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
+    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
+  }
+  static normalize(v) {
+    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    return new _Vec2(v.x / v.distance, v.y / v.distance);
+  }
+  static distance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    return Math.sqrt(x * x + y * y);
+  }
+  static make(x, y) {
+    return new _Vec2(x, y);
+  }
+  static add(v1, v2) {
+    return new _Vec2(v1.x + v2.x, v1.y + v2.y);
+  }
+  static sub(v1, v2) {
+    return new _Vec2(v1.x - v2.x, v1.y - v2.y);
+  }
+  static mult(v1, v2) {
+    return new _Vec2(v1.x * v2.x, v1.y * v2.y);
+  }
+  static multScalar(v1, s) {
+    return new _Vec2(v1.x * s, v1.y * s);
+  }
+  static div(v1, v2) {
+    if (v2.x == 0 || v2.y == 0) throw new Error("v2 has some 0");
+    return new _Vec2(v1.x / v2.x, v1.y / v2.y);
+  }
+  static clone(v1) {
+    return new _Vec2(v1.x, v1.y);
+  }
+  static dot(v1, v2) {
+    return v1.x * v2.x + v1.y * v2.y;
+  }
+};
+
+// src/Camera.ts
+var UP_VEC = Vec3.make(0, 1, 0);
+var Camera = class {
+  pos;
+  forward;
+  perpective;
+  lookAtMatrix;
+  constructor(initial_pos, width, height, Fov, zNear, zFar) {
+    this.perpective = Mat4x4.perspective(height / width, Fov, zNear, zFar);
+    this.pos = initial_pos;
+    this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
+  }
+  update(moveVec, mouseMoveVec, dt) {
+    console.log("forward: ", this.forward);
+    const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
+    const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1));
+    const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
+    this.pos = Vec3.add(this.pos, Vec3.multScalar(newMoveVec.convertToVec3(), dt * 0.01));
+    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), dt * 0.01));
+    this.lookAtMatrix = this.getLookAt();
+  }
+  getLookAt() {
+    return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);
+  }
+};
+
 // src/Game.ts
 var Game = class {
   cubeVertices;
@@ -848,21 +930,25 @@ var Game = class {
   tableIndices;
   cubeVao;
   tableVao;
-  camera_pos;
   total_time;
   shapes;
   width;
   height;
   shaderProgram;
   moveVector;
+  mouseMoveVector;
+  lastMousePos;
   Fov;
+  pCamera;
   constructor(gl, width, height, vertexCode, fragmentCode) {
     this.width = width;
     this.height = height;
     this.total_time = 0;
-    this.camera_pos = Vec3.make(0, 1, 5);
     this.moveVector = Vec3.make(0, 0, 0);
-    this.Fov = 1.396263;
+    this.mouseMoveVector = Vec2.make(0, 0);
+    this.lastMousePos = Vec2.make(0, 0);
+    this.Fov = 1;
+    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 200);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -893,11 +979,11 @@ var Game = class {
     }
     console.log("error: ", gl.getError());
     gl.viewport(0, 0, this.width, this.height);
-    const UP_VEC = Vec3.make(0, 1, 0);
+    const UP_VEC2 = Vec3.make(0, 1, 0);
     this.shapes = [];
-    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(1, 0.1, 1), UP_VEC, 0, this.tableVao, TABLE_INDICES.length));
-    this.shapes.push(new Shape(Vec3.make(0, 1, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
-    this.shapes.push(new Shape(Vec3.make(2, 1, -1), Vec3.make(1, 1, 1), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(1, 0.1, 1), UP_VEC2, 0, this.tableVao, TABLE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(0, 1, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC2, 0, this.cubeVao, CUBE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(2, 1, -1), Vec3.make(1, 1, 1), UP_VEC2, 0, this.cubeVao, CUBE_INDICES.length));
   }
   handleKeyDown(e) {
     if (e.key == "o") this.Fov += 0.1;
@@ -931,10 +1017,14 @@ var Game = class {
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, -1, 0));
   }
   handleMouseMovement(e) {
+    this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
+    this.mouseMoveVector.y *= -1;
+    console.log("mouseMove: ", this.mouseMoveVector);
   }
   update(dt) {
     this.total_time += dt;
-    this.camera_pos = Vec3.add(this.camera_pos, Vec3.multScalar(this.moveVector, dt * 0.01));
+    this.pCamera.update(this.moveVector, this.mouseMoveVector, dt);
+    this.mouseMoveVector = Vec2.make(0, 0);
   }
   draw(gl) {
     gl.clearColor(0.08, 0.08, 0.08, 1);
@@ -943,17 +1033,11 @@ var Game = class {
     gl.enable(gl.DEPTH_TEST);
     this.shaderProgram.bind(gl);
     const matView = Mat4x4.LookAtRH(
-      this.camera_pos,
-      Vec3.add(this.camera_pos, Vec3.make(0, 0, -1)),
+      this.pCamera.pos,
+      Vec3.add(this.pCamera.pos, this.pCamera.forward),
       Vec3.make(0, 1, 0)
     );
-    const matProj = Mat4x4.perspective(
-      this.height / this.width,
-      this.Fov,
-      1e-3,
-      100
-    );
-    const matViewProj = Mat4x4.multMatrix(matView, matProj);
+    const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
     const matWorldLoc = this.shaderProgram.getUniform(gl, "matWorld");
     this.shapes.forEach((element) => {
@@ -969,8 +1053,9 @@ async function loadText(url) {
   return await response.text();
 }
 var game;
+var canvas;
 function initGame(data) {
-  const canvas = document.getElementById("demo-canvas");
+  canvas = document.getElementById("demo-canvas");
   if (!canvas) {
     showError("Canvas nope");
     return;
@@ -1014,5 +1099,11 @@ document.addEventListener("keyup", (e) => {
   game.handleKeyUp(e);
 });
 document.addEventListener("mousemove", (e) => {
-  game.handleMouseMovement(e);
+  if (document.pointerLockElement === canvas) {
+    console.log("e: ", e.movementX);
+    game.handleMouseMovement(e);
+  }
+});
+document.addEventListener("click", () => {
+  canvas.requestPointerLock();
 });

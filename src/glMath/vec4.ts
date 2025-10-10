@@ -1,3 +1,5 @@
+import { Vec3 } from "./vec3";
+
 export class Vec4 {
   x : number;
   y : number;
@@ -11,6 +13,9 @@ export class Vec4 {
     this.w = w;
     this.distance = Math.sqrt(x * x + y * y + z*z + w*w);
   }
+  convertToVec3(){
+    return Vec3.make(this.x, this.y, this.z);
+  }
 
   static normalize(v : Vec4) : Vec4{
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");
@@ -22,6 +27,10 @@ export class Vec4 {
     const z = v1.z-v1.z
     const w = v1.w-v1.w;
     return Math.sqrt(x*x + y*y + z*z + w*w);
+  }
+
+  static make(x : number, y : number, z: number, w : number) : Vec4{
+    return new Vec4(x, y, z, w);
   }
   static add(v1 : Vec4, v2 : Vec4) : Vec4{
     return new Vec4(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w+v2.w);

@@ -11,13 +11,16 @@ async function loadText(url: string): Promise<string> {
 }
 
 let game : Game;
+let canvas : HTMLCanvasElement;
 
 function initGame(data){
-  const canvas = document.getElementById("demo-canvas") as HTMLCanvasElement | null;
+  canvas = document.getElementById("demo-canvas") as HTMLCanvasElement;
   if (!canvas){
     showError("Canvas nope");
     return;
   }
+
+
   const gl = canvas.getContext('webgl2');
   if (!gl){
     showError("webgl2 nope");
@@ -67,8 +70,13 @@ document.addEventListener("keyup", (e) => {
 });
 
 document.addEventListener("mousemove", (e) => {
-  game.handleMouseMovement(e);
+  if (document.pointerLockElement === canvas) {
+    console.log("e: ", e.movementX);
+    game.handleMouseMovement(e);
+  }
 });
 
-
+document.addEventListener("click", () => {
+  canvas.requestPointerLock();
+});
 
