@@ -71,7 +71,6 @@ document.addEventListener("keyup", (e) => {
 
 document.addEventListener("mousemove", (e) => {
   if (document.pointerLockElement === canvas) {
-    console.log("e: ", e.movementX);
     game.handleMouseMovement(e);
   }
 });

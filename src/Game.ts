@@ -154,35 +154,13 @@ export class Game {
     gl.enable(gl.DEPTH_TEST);
     this.shaderProgram.bind(gl);
 
-    const matView = Mat4x4.LookAtRH(
-      this.pCamera.pos,
-      Vec3.add(this.pCamera.pos, this.pCamera.forward),
-      Vec3.make(0, 1, 0)
-    );
-
-
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matViewProj"), false, matViewProj.values);
-
-    //const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
-    //gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matViewProj"), false, matViewProj.values);
 
     const matWorldLoc = this.shaderProgram.getUniform(gl, "matWorld");
     this.shapes.forEach(element => {
       element.draw(gl, matWorldLoc);
     });
-    /*
-    
-    const rotMatrix = Mat4x4.fromQuat(Quat.makeFromAxis(0.7, Vec3.make(1.0, 1.0, 0.0)));
-    let matWorld = Mat4x4.identity();
-    matWorld = Mat4x4.multMatrix(matWorld, rotMatrix);
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(Vec3.make(1, 0.5, 1)));
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(Vec3.make(Math.cos(this.total_time/100)*0.0, 0.0, 0)));
-    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl,"matWorld"), false, matWorld.values);
-    gl.bindVertexArray(this.tableVao);
-    gl.drawElements(gl.TRIANGLES, TABLE_INDICES.length, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(null);
-    */
 
   }
 

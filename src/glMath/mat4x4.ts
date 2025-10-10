@@ -108,9 +108,9 @@ export class Mat4x4 {
     ]);
     return new Mat4x4(values2);
   }
-  static perspective(aspect_ratio : number, fov : number, zFar : number, zNear : number ) : Mat4x4 {
+  static perspective(aspect_ratio : number, fov : number, zNear : number, zFar : number ) : Mat4x4 {
     const fovFactor : number = 1.0/Math.tan(fov/2.0);
-    const normFactor : number = 1.0/(zNear - zFar);
+    const normFactor : number = 1.0/(zFar - zNear);
     const values = new Float32Array([
       fovFactor / aspect_ratio, 0, 0, 0,
       0, fovFactor, 0, 0,
