@@ -453,6 +453,11 @@ var Vec3 = class _Vec3 {
   convertVec4() {
     return new Vec4(this.x, this.y, this.z, 1);
   }
+  clamp(xMin, xMax, yMin, yMax, zMin, zMax) {
+    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
+    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
+    this.z = this.z < zMin ? zMin : this.z > zMax ? zMax : this.z;
+  }
   static normalize(v) {
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");
     return new _Vec3(v.x / v.distance, v.y / v.distance, v.z / v.distance);
@@ -645,8 +650,26 @@ var Mat4x4 = class _Mat4x4 {
   }
   static perspective(aspect_ratio, fov, zFar, zNear) {
     const fovFactor = 1 / Math.tan(fov / 2);
-    const normFactor = zFar / (zFar - zNear);
+    const normFactor = 1 / (zNear - zFar);
     const values = new Float32Array([
+      fovFactor / aspect_ratio,
+      0,
+      0,
+      0,
+      0,
+      fovFactor,
+      0,
+      0,
+      0,
+      0,
+      (zFar + zNear) * normFactor,
+      -1,
+      0,
+      0,
+      2 * zFar * zFar * normFactor,
+      0
+    ]);
+    const values2 = new Float32Array([
       fovFactor * aspect_ratio,
       0,
       0,
@@ -664,7 +687,7 @@ var Mat4x4 = class _Mat4x4 {
       -normFactor * zNear,
       0
     ]);
-    return new _Mat4x4(values);
+    return new _Mat4x4(values2);
   }
   static T(m) {
     let values = [];
@@ -831,11 +854,15 @@ var Game = class {
   width;
   height;
   shaderProgram;
+  moveVector;
+  Fov;
   constructor(gl, width, height, vertexCode, fragmentCode) {
     this.width = width;
     this.height = height;
     this.total_time = 0;
     this.camera_pos = Vec3.make(0, 1, 5);
+    this.moveVector = Vec3.make(0, 0, 0);
+    this.Fov = 1.396263;
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -868,31 +895,51 @@ var Game = class {
     gl.viewport(0, 0, this.width, this.height);
     const UP_VEC = Vec3.make(0, 1, 0);
     this.shapes = [];
+    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(1, 0.1, 1), UP_VEC, 0, this.tableVao, TABLE_INDICES.length));
     this.shapes.push(new Shape(Vec3.make(0, 1, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
     this.shapes.push(new Shape(Vec3.make(2, 1, -1), Vec3.make(1, 1, 1), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
   }
-  update(dt) {
-    this.total_time += dt;
-  }
   handleKeyDown(e) {
+    if (e.key == "o") this.Fov += 0.1;
+    if (e.key == "i") this.Fov -= 0.1;
     if (e.key == "w")
-      this.camera_pos.z += 0.1;
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
     if (e.key == "a")
-      this.camera_pos.x -= 0.1;
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(-1, 0, 0));
     if (e.key == "d")
-      this.camera_pos.x += 0.1;
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
     if (e.key == "s")
-      this.camera_pos.z -= 0.1;
-    if (e.key == "e") this.camera_pos.y += 0.1;
-    if (e.key == "q") this.camera_pos.y -= 0.1;
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
+    if (e.key == "e")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
+    if (e.key == "q")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, -1, 0));
+    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
   handleKeyUp(e) {
+    if (e.key == "w")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, -1));
+    if (e.key == "a")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(-1, 0, 0));
+    if (e.key == "d")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
+    if (e.key == "s")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
+    if (e.key == "e")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
+    if (e.key == "q")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, -1, 0));
   }
   handleMouseMovement(e) {
+  }
+  update(dt) {
+    this.total_time += dt;
+    this.camera_pos = Vec3.add(this.camera_pos, Vec3.multScalar(this.moveVector, dt * 0.01));
   }
   draw(gl) {
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     this.shaderProgram.bind(gl);
     const matView = Mat4x4.LookAtRH(
@@ -901,10 +948,10 @@ var Game = class {
       Vec3.make(0, 1, 0)
     );
     const matProj = Mat4x4.perspective(
-      this.width / this.height,
-      1.396263,
-      0.01,
-      200
+      this.height / this.width,
+      this.Fov,
+      1e-3,
+      100
     );
     const matViewProj = Mat4x4.multMatrix(matView, matProj);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
@@ -933,8 +980,8 @@ function initGame(data) {
     showError("webgl2 nope");
     return;
   }
-  canvas.width = canvas.clientWidth;
-  canvas.height = canvas.clientHeight;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
   console.log(data["vertexCode"]);
   game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);
   let lastTime = performance.now();

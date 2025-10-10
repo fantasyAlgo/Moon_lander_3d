@@ -23,9 +23,8 @@ function initGame(data){
     showError("webgl2 nope");
     return;
   }
-
-  canvas.width = canvas.clientWidth;
-  canvas.height = canvas.clientHeight;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
   console.log(data["vertexCode"]);
 
   game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);

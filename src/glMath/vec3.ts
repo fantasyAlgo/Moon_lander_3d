@@ -14,6 +14,11 @@ export class Vec3 {
   convertVec4(){
     return new Vec4(this.x, this.y, this.z, 1.0);
   }
+  clamp(xMin : number, xMax : number, yMin : number, yMax : number, zMin : number, zMax : number){
+    this.x = this.x < xMin ? xMin : (this.x > xMax ? xMax : this.x);
+    this.y = this.y < yMin ? yMin : (this.y > yMax ? yMax : this.y);
+    this.z = this.z < zMin ? zMin : (this.z > zMax ? zMax : this.z);
+  }
 
   static normalize(v : Vec3) : Vec3{
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");

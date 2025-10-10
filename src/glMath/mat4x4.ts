@@ -110,17 +110,22 @@ export class Mat4x4 {
   }
   static perspective(aspect_ratio : number, fov : number, zFar : number, zNear : number ) : Mat4x4 {
     const fovFactor : number = 1.0/Math.tan(fov/2.0);
-    const normFactor : number = zFar/(zFar - zNear);
+    const normFactor : number = 1.0/(zNear - zFar);
     const values = new Float32Array([
+      fovFactor / aspect_ratio, 0, 0, 0,
+      0, fovFactor, 0, 0,
+      0, 0, (zFar+zNear)*normFactor, -1,
+      0, 0, 2*zFar*zFar*normFactor, 0
+    ]);
+    const values2 = new Float32Array([
       fovFactor * aspect_ratio, 0, 0, 0,
       0, fovFactor, 0, 0,
       0, 0, normFactor, -1,
       0, 0, -normFactor * zNear, 0
     ]);
 
-    return new Mat4x4(values);
+    return new Mat4x4(values2);
   }
-
   static T( m :  Mat4x4) : Mat4x4{
     let values : number[] = [];
     for (let i = 0; i < 4; i++) {

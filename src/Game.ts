@@ -24,10 +24,12 @@ export class Game {
   total_time: number;
   shapes : Shape[];
 
-
   width : number;
   height : number;
   shaderProgram : ShaderProgram;
+
+  moveVector : Vec3;
+  Fov : number;
 
 
 
@@ -36,6 +38,9 @@ export class Game {
     this.height = height;
     this.total_time = 0.0
     this.camera_pos = Vec3.make(0, 1, 5);
+    this.moveVector = Vec3.make(0, 0, 0);
+    this.Fov = 1.396263;
+
 
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -78,38 +83,57 @@ export class Game {
 
     const UP_VEC = Vec3.make(0, 1, 0);
     this.shapes = [];
-    //this.shapes.push(new Shape(Vec3.make(0, 0.0, 0), Vec3.make(1, 0.1, 1), UP_VEC, 0, this.tableVao, TABLE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(0, 0.0, 0), Vec3.make(1, 0.1, 1), UP_VEC, 0, this.tableVao, TABLE_INDICES.length));
     this.shapes.push(new Shape(Vec3.make(0, 1.0, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
     this.shapes.push(new Shape(Vec3.make(2, 1.0, -1), Vec3.make(1.0, 1.0, 1.0), UP_VEC, 0, this.cubeVao, CUBE_INDICES.length));
-
-
-
-  }
-  update(dt : number) {
-    this.total_time += dt;
   }
 
   handleKeyDown(e){
-    if (e.key == "w")
-      this.camera_pos.z += 0.1;
-    if (e.key == "a")
-      this.camera_pos.x -= 0.1;
-    if (e.key == "d")
-      this.camera_pos.x += 0.1;
-    if (e.key == "s")
-      this.camera_pos.z -= 0.1;
-    if (e.key == "e") this.camera_pos.y += 0.1;
-    if (e.key == "q") this.camera_pos.y -= 0.1;
+    if (e.key == "o") this.Fov += 0.1;
+    if (e.key == "i") this.Fov -= 0.1;
 
+
+    if (e.key == "w")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
+    if (e.key == "a")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(-1, 0, 0));
+    if (e.key == "d")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
+    if (e.key == "s")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
+    if (e.key == "e") 
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
+    if (e.key == "q") 
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, -1, 0));
+    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
 
   handleKeyUp(e){
-
+    if (e.key == "w")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, -1));
+    if (e.key == "a")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(-1, 0, 0));
+    if (e.key == "d")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
+    if (e.key == "s")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
+    if (e.key == "e") 
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
+    if (e.key == "q") 
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, -1, 0));
   }
 
   handleMouseMovement(e){
 
   }
+
+
+  update(dt : number) {
+    this.total_time += dt;
+    this.camera_pos = Vec3.add(this.camera_pos, Vec3.multScalar(this.moveVector, dt*0.01));
+  }
+
+
 
 
 
@@ -127,9 +151,9 @@ export class Game {
       Vec3.make(0, 1, 0)
     );
     const matProj = Mat4x4.perspective(
-      this.width/this.height,
-      1.396263,
-      0.01, 200.0
+      this.height/this.width,
+      this.Fov,
+      0.001, 100.0
     );
 
     const matViewProj = Mat4x4.multMatrix(matView, matProj);
