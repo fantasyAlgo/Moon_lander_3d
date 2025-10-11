@@ -31,7 +31,7 @@ function createStaticIndexBuffer(gl, data) {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
   return buffer;
 }
-function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib) {
+function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib, normalAttrib) {
   const vao = gl.createVertexArray();
   if (!vao) {
     throw new Error("A problem occurred with the creation of the VAO");
@@ -39,13 +39,14 @@ function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib
   gl.bindVertexArray(vao);
   gl.enableVertexAttribArray(posAttrib);
   gl.enableVertexAttribArray(colorAttrib);
+  gl.enableVertexAttribArray(normalAttrib);
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
   gl.vertexAttribPointer(
     posAttrib,
     3,
     gl.FLOAT,
     false,
-    6 * Float32Array.BYTES_PER_ELEMENT,
+    9 * Float32Array.BYTES_PER_ELEMENT,
     0
   );
   gl.vertexAttribPointer(
@@ -53,8 +54,16 @@ function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib
     3,
     gl.FLOAT,
     false,
-    6 * Float32Array.BYTES_PER_ELEMENT,
+    9 * Float32Array.BYTES_PER_ELEMENT,
     3 * Float32Array.BYTES_PER_ELEMENT
+  );
+  gl.vertexAttribPointer(
+    normalAttrib,
+    3,
+    gl.FLOAT,
+    false,
+    9 * Float32Array.BYTES_PER_ELEMENT,
+    6 * Float32Array.BYTES_PER_ELEMENT
   );
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -154,13 +163,16 @@ var fireyTriangleColors = new Uint8Array([
   26
 ]);
 var CUBE_VERTICES = new Float32Array([
-  // Front face
+  // Front face (normal: 0, 0, 1)
   -1,
   -1,
   1,
   1,
   0,
   0,
+  0,
+  0,
+  1,
   // 0
   1,
   -1,
@@ -168,6 +180,9 @@ var CUBE_VERTICES = new Float32Array([
   1,
   0,
   0,
+  0,
+  0,
+  1,
   // 1
   1,
   1,
@@ -175,6 +190,9 @@ var CUBE_VERTICES = new Float32Array([
   1,
   0,
   0,
+  0,
+  0,
+  1,
   // 2
   -1,
   1,
@@ -182,14 +200,20 @@ var CUBE_VERTICES = new Float32Array([
   1,
   0,
   0,
+  0,
+  0,
+  1,
   // 3
-  // Back face
+  // Back face (normal: 0, 0, -1)
   -1,
   -1,
   -1,
   1,
   0,
   0,
+  0,
+  0,
+  -1,
   // 4
   -1,
   1,
@@ -197,6 +221,9 @@ var CUBE_VERTICES = new Float32Array([
   1,
   0,
   0,
+  0,
+  0,
+  -1,
   // 5
   1,
   1,
@@ -204,64 +231,95 @@ var CUBE_VERTICES = new Float32Array([
   1,
   0,
   0,
-  // ...
+  0,
+  0,
+  -1,
+  // 6
   1,
   -1,
   -1,
   1,
   0,
   0,
-  // Top face
+  0,
+  0,
+  -1,
+  // 7
+  // Top face (normal: 0, 1, 0)
   -1,
   1,
   -1,
   0,
   1,
   0,
-  -1,
-  1,
-  1,
-  0,
-  1,
-  0,
-  1,
-  1,
-  1,
-  0,
-  1,
-  0,
-  1,
-  1,
-  -1,
-  0,
-  1,
-  0,
-  // Bottom face
-  -1,
-  -1,
-  -1,
-  0,
-  1,
-  0,
-  1,
-  -1,
-  -1,
-  0,
-  1,
-  0,
-  1,
-  -1,
-  1,
   0,
   1,
   0,
   -1,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  0,
+  1,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  0,
+  1,
+  1,
+  -1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  0,
+  // Bottom face (normal: 0, -1, 0)
+  -1,
+  -1,
+  -1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  0,
+  1,
+  -1,
+  -1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  0,
+  1,
   -1,
   1,
   0,
   1,
   0,
-  // Right face
+  0,
+  -1,
+  0,
+  -1,
+  -1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  0,
+  // Right face (normal: 1, 0, 0)
   1,
   -1,
   -1,
@@ -269,37 +327,22 @@ var CUBE_VERTICES = new Float32Array([
   0,
   1,
   1,
-  1,
-  -1,
-  0,
-  0,
-  1,
-  1,
-  1,
-  1,
   0,
   0,
   1,
   1,
   -1,
+  0,
+  0,
+  1,
   1,
   0,
   0,
   1,
-  // Left face
-  -1,
-  -1,
-  -1,
-  0,
-  0,
   1,
-  -1,
-  -1,
   1,
   0,
   0,
-  1,
-  -1,
   1,
   1,
   0,
@@ -307,10 +350,49 @@ var CUBE_VERTICES = new Float32Array([
   1,
   -1,
   1,
+  0,
+  0,
+  1,
+  1,
+  0,
+  0,
+  // Left face (normal: -1, 0, 0)
+  -1,
+  -1,
   -1,
   0,
   0,
-  1
+  1,
+  -1,
+  0,
+  0,
+  -1,
+  -1,
+  1,
+  0,
+  0,
+  1,
+  -1,
+  0,
+  0,
+  -1,
+  1,
+  1,
+  0,
+  0,
+  1,
+  -1,
+  0,
+  0,
+  -1,
+  1,
+  -1,
+  0,
+  0,
+  1,
+  -1,
+  0,
+  0
 ]);
 var CUBE_INDICES = new Uint16Array([
   0,
@@ -364,24 +446,36 @@ var TABLE_VERTICES = new Float32Array([
   0.2,
   0.2,
   0.2,
-  -10,
   0,
-  10,
-  0.2,
-  0.2,
-  0.2,
-  10,
-  0,
-  10,
-  0.2,
-  0.2,
-  0.2,
-  10,
+  1,
   0,
   -10,
+  0,
+  10,
   0.2,
   0.2,
-  0.2
+  0.2,
+  0,
+  1,
+  0,
+  10,
+  0,
+  10,
+  0.2,
+  0.2,
+  0.2,
+  0,
+  1,
+  0,
+  10,
+  0,
+  -10,
+  0.2,
+  0.2,
+  0.2,
+  0,
+  1,
+  0
 ]);
 var TABLE_INDICES = new Uint16Array([
   0,
@@ -826,19 +920,22 @@ var Quat = class _Quat {
 
 // src/Shape.ts
 var Shape = class {
-  constructor(pos, scale, rotationAxis, rotationAngle, vao, numIndices) {
+  constructor(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices) {
     this.pos = pos;
     this.scale = scale;
     this.rotationAxis = rotationAxis;
     this.rotationAngle = rotationAngle;
+    this.program = program;
     this.vao = vao;
     this.numIndices = numIndices;
   }
   matWorld = Mat4x4.identity();
-  draw(gl, matWorldUniform) {
+  draw(gl) {
+    const matWorldUniform = this.program.getUniform(gl, "matWorld");
     let matWorld = Mat4x4.fromQuat(Quat.makeFromAxis(this.rotationAngle, this.rotationAxis));
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(this.scale));
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
+    this.program.bind(gl);
     gl.uniformMatrix4fv(matWorldUniform, false, matWorld.values);
     gl.bindVertexArray(this.vao);
     gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
@@ -909,12 +1006,12 @@ var Camera = class {
     this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
   }
   update(moveVec, mouseMoveVec, dt) {
-    console.log("forward: ", this.forward);
+    const SENSIBILITY = 0.3;
     const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
     const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1));
     const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
     this.pos = Vec3.add(this.pos, Vec3.multScalar(newMoveVec.convertToVec3(), dt * 0.01));
-    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), dt * 0.01));
+    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY * dt * 0.01));
     this.lookAtMatrix = this.getLookAt();
   }
   getLookAt() {
@@ -935,18 +1032,23 @@ var Game = class {
   width;
   height;
   shaderProgram;
+  lightShaderProgram;
   moveVector;
   mouseMoveVector;
   lastMousePos;
+  lightColor;
+  lightPos;
   Fov;
   pCamera;
-  constructor(gl, width, height, vertexCode, fragmentCode) {
+  constructor(gl, width, height, shaders) {
     this.width = width;
     this.height = height;
     this.total_time = 0;
     this.moveVector = Vec3.make(0, 0, 0);
     this.mouseMoveVector = Vec2.make(0, 0);
     this.lastMousePos = Vec2.make(0, 0);
+    this.lightColor = Vec3.make(1, 1, 1);
+    this.lightPos = Vec3.make(4, 4, 2);
     this.Fov = 1;
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 200);
     gl.clearColor(0.08, 0.08, 0.08, 1);
@@ -959,9 +1061,13 @@ var Game = class {
     if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices) {
       showError(`Failed to create some buffers`);
     }
-    this.shaderProgram = new ShaderProgram(gl, vertexCode, fragmentCode);
+    this.shaderProgram = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
+    this.lightShaderProgram = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
+    this.shaderProgram.bind(gl);
+    console.log("error: ", gl.getError());
     const vPosLoc = this.shaderProgram.getAttrib(gl, "vPos");
     const vColorLoc = this.shaderProgram.getAttrib(gl, "vColor");
+    const vNormalLoc = this.shaderProgram.getAttrib(gl, "vNormal");
     const matWorldUni = this.shaderProgram.getUniform(gl, "matWorld");
     const matViewProjUni = this.shaderProgram.getUniform(gl, "matViewProj");
     if (vPosLoc < 0 || vColorLoc < 0) {
@@ -972,8 +1078,8 @@ var Game = class {
     if (!matViewProjUni || !matWorldUni) {
       showError(`Data: ${matViewProjUni}, ${matWorldUni}`);
     }
-    this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc);
-    this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc);
+    this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc);
+    this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc);
     if (!this.cubeVao || !this.tableVao) {
       showError("Vao were not created");
     }
@@ -981,9 +1087,10 @@ var Game = class {
     gl.viewport(0, 0, this.width, this.height);
     const UP_VEC2 = Vec3.make(0, 1, 0);
     this.shapes = [];
-    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(1, 0.1, 1), UP_VEC2, 0, this.tableVao, TABLE_INDICES.length));
-    this.shapes.push(new Shape(Vec3.make(0, 1, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC2, 0, this.cubeVao, CUBE_INDICES.length));
-    this.shapes.push(new Shape(Vec3.make(2, 1, -1), Vec3.make(1, 1, 1), UP_VEC2, 0, this.cubeVao, CUBE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(1, 0.1, 1), UP_VEC2, 0, this.shaderProgram, this.tableVao, TABLE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(0, 1, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC2, 0, this.shaderProgram, this.cubeVao, CUBE_INDICES.length));
+    this.shapes.push(new Shape(Vec3.make(2, 1, -1), Vec3.make(1, 1, 1), UP_VEC2, 0, this.shaderProgram, this.cubeVao, CUBE_INDICES.length));
+    this.shapes.push(new Shape(this.lightPos, Vec3.make(0.2, 0.2, 0.2), UP_VEC2, 0, this.lightShaderProgram, this.cubeVao, CUBE_INDICES.length));
   }
   handleKeyDown(e) {
     if (e.key == "o") this.Fov += 0.1;
@@ -1019,7 +1126,6 @@ var Game = class {
   handleMouseMovement(e) {
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1;
-    console.log("mouseMove: ", this.mouseMoveVector);
   }
   update(dt) {
     this.total_time += dt;
@@ -1031,17 +1137,17 @@ var Game = class {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
-    this.shaderProgram.bind(gl);
-    const matView = Mat4x4.LookAtRH(
-      this.pCamera.pos,
-      Vec3.add(this.pCamera.pos, this.pCamera.forward),
-      Vec3.make(0, 1, 0)
-    );
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
+    this.shaderProgram.bind(gl);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
-    const matWorldLoc = this.shaderProgram.getUniform(gl, "matWorld");
+    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightColor"), this.lightColor.x, this.lightColor.y, this.lightColor.z);
+    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightPos"), this.lightPos.x, this.lightPos.y, this.lightPos.z);
+    gl.uniform3f(this.shaderProgram.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
+    this.lightShaderProgram.bind(gl);
+    gl.uniformMatrix4fv(this.lightShaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
+    gl.uniform3f(this.lightShaderProgram.getUniform(gl, "lightColor"), this.lightColor.x, this.lightColor.y, this.lightColor.z);
     this.shapes.forEach((element) => {
-      element.draw(gl, matWorldLoc);
+      element.draw(gl);
     });
   }
 };
@@ -1067,8 +1173,8 @@ function initGame(data) {
   }
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  console.log(data["vertexCode"]);
-  game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);
+  console.log(data["fMain"]);
+  game = new Game(gl, canvas.width, canvas.height, data);
   let lastTime = performance.now();
   let dt;
   function step() {
@@ -1084,9 +1190,17 @@ function initGame(data) {
 }
 try {
   (async () => {
-    const vertexCode = await loadText("src/shaders/vertex.glsl");
-    const fragmentCode = await loadText("src/shaders/fragment.glsl");
-    initGame({ vertexCode, fragmentCode });
+    const shader_source = "src/shaders";
+    const shader_names = [
+      "fMain",
+      "fLight",
+      "vLight",
+      "vMain"
+    ];
+    let object = {};
+    for (let i = 0; i < shader_names.length; i++)
+      object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));
+    initGame(object);
   })();
 } catch (e) {
   console.log(e);
@@ -1100,7 +1214,6 @@ document.addEventListener("keyup", (e) => {
 });
 document.addEventListener("mousemove", (e) => {
   if (document.pointerLockElement === canvas) {
-    console.log("e: ", e.movementX);
     game.handleMouseMovement(e);
   }
 });

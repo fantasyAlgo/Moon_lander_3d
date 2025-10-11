@@ -15,11 +15,14 @@ export class Camera {
     this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
   }
   update(moveVec : Vec3, mouseMoveVec: Vec2, dt : number){
+    const SENSIBILITY = 0.3;
+
     const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0,0,0), this.forward, UP_VEC));
     const newMoveVec : Vec4 = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1.0));
     const newMouseVec : Vec4 = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0.0, 1.0));
     this.pos = Vec3.add(this.pos, Vec3.multScalar(newMoveVec.convertToVec3(), dt*0.01));
-    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), dt*0.01));
+
+    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY*dt*0.01));
 
     this.lookAtMatrix = this.getLookAt();
   }

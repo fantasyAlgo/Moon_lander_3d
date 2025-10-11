@@ -36,7 +36,7 @@ export function createStaticIndexBuffer(gl : WebGL2RenderingContext, data : Arra
 
 export function create3dPosColorInterleavedVao(gl : WebGL2RenderingContext, 
   vertexBuffer : WebGLBuffer, indexBuffer : WebGLBuffer,
-  posAttrib : number, colorAttrib : number
+  posAttrib : number, colorAttrib : number, normalAttrib : number
 ) : WebGLVertexArrayObject {
   const vao : WebGLVertexArrayObject = gl.createVertexArray();
   if (!vao){
@@ -45,14 +45,21 @@ export function create3dPosColorInterleavedVao(gl : WebGL2RenderingContext,
   gl.bindVertexArray(vao);
   gl.enableVertexAttribArray(posAttrib);
   gl.enableVertexAttribArray(colorAttrib);
+  gl.enableVertexAttribArray(normalAttrib);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
   gl.vertexAttribPointer(
-    posAttrib, 3, gl.FLOAT, false, 6*Float32Array.BYTES_PER_ELEMENT, 0
+    posAttrib, 3, gl.FLOAT, false, 9*Float32Array.BYTES_PER_ELEMENT, 0
   );
   gl.vertexAttribPointer(
-    colorAttrib, 3, gl.FLOAT, false, 6*Float32Array.BYTES_PER_ELEMENT, 3*Float32Array.BYTES_PER_ELEMENT
+    colorAttrib, 3, gl.FLOAT, false, 9*Float32Array.BYTES_PER_ELEMENT, 3*Float32Array.BYTES_PER_ELEMENT
   );
+  gl.vertexAttribPointer(
+    normalAttrib, 3, gl.FLOAT, false, 9*Float32Array.BYTES_PER_ELEMENT, 6*Float32Array.BYTES_PER_ELEMENT
+  );
+
+
+
 
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
 

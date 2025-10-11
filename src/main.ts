@@ -28,9 +28,9 @@ function initGame(data){
   }
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  console.log(data["vertexCode"]);
+  console.log(data["fMain"]);
 
-  game = new Game(gl, canvas.width, canvas.height, data["vertexCode"], data["fragmentCode"]);
+  game = new Game(gl, canvas.width, canvas.height, data);
   let lastTime = performance.now();
   let dt : number;
 
@@ -53,9 +53,14 @@ function initGame(data){
 
 try {
   (async () => {
-    const vertexCode = await loadText("src/shaders/vertex.glsl");
-    const fragmentCode = await loadText("src/shaders/fragment.glsl");
-    initGame({ vertexCode, fragmentCode });
+    const shader_source = "src/shaders"
+    const shader_names = [
+      "fMain", "fLight", "vLight", "vMain"
+    ];
+    let object = {};
+    for (let i = 0; i < shader_names.length; i++)
+      object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));
+    initGame(object);
   })();
 } catch (e) {
   console.log(e);
