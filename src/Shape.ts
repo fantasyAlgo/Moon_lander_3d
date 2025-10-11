@@ -6,7 +6,7 @@ import { ShaderProgram } from "./shaderProgram";
 export class Shape {
   private matWorld : Mat4x4 = Mat4x4.identity();
   constructor(
-    private pos : Vec3, 
+    public pos : Vec3, 
     private scale : Vec3,
     private rotationAxis: Vec3,
     private rotationAngle: number,

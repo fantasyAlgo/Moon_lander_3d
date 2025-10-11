@@ -131,6 +131,142 @@ var ShaderProgram = class {
   }
 };
 
+// src/CoupledVertex.ts
+var CoupledVertex = class {
+  constructor(pos, color, normal) {
+    this.pos = pos;
+    this.color = color;
+    this.normal = normal;
+  }
+};
+function webglVerticesFromCoupledVertices(vertices) {
+  const lst = [];
+  const size = vertices.length;
+  for (let i = 0; i < size; i++) {
+    lst.push(vertices[i].pos.x);
+    lst.push(vertices[i].pos.y);
+    lst.push(vertices[i].pos.z);
+    lst.push(vertices[i].color.x);
+    lst.push(vertices[i].color.y);
+    lst.push(vertices[i].color.z);
+    lst.push(vertices[i].normal.x);
+    lst.push(vertices[i].normal.y);
+    lst.push(vertices[i].normal.z);
+  }
+  return new Float32Array(lst);
+}
+
+// src/glMath/vec4.ts
+var Vec4 = class _Vec4 {
+  x;
+  y;
+  z;
+  w;
+  distance;
+  constructor(x, y, z, w) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.w = w;
+    this.distance = Math.sqrt(x * x + y * y + z * z + w * w);
+  }
+  convertToVec3() {
+    return Vec3.make(this.x, this.y, this.z);
+  }
+  static normalize(v) {
+    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    return new _Vec4(v.x / v.distance, v.y / v.distance, v.z / v.distance, v.w / v.distance);
+  }
+  static distance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    const z = v1.z - v1.z;
+    const w = v1.w - v1.w;
+    return Math.sqrt(x * x + y * y + z * z + w * w);
+  }
+  static make(x, y, z, w) {
+    return new _Vec4(x, y, z, w);
+  }
+  static add(v1, v2) {
+    return new _Vec4(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w + v2.w);
+  }
+  static sub(v1, v2) {
+    return new _Vec4(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z, v1.w - v2.w);
+  }
+  static mult(v1, v2) {
+    return new _Vec4(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z, v1.w * v2.w);
+  }
+  static clone(v1) {
+    return new _Vec4(v1.x, v1.y, v1.z, v1.w);
+  }
+  static dot(v1, v2) {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
+  }
+  static cross(a, b) {
+    return new _Vec4(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x, 1);
+  }
+};
+
+// src/glMath/vec3.ts
+var Vec3 = class _Vec3 {
+  x;
+  y;
+  z;
+  distance;
+  constructor(x, y, z) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.distance = Math.sqrt(x * x + y * y + z * z);
+  }
+  convertVec4() {
+    return new Vec4(this.x, this.y, this.z, 1);
+  }
+  clamp(xMin, xMax, yMin, yMax, zMin, zMax) {
+    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
+    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
+    this.z = this.z < zMin ? zMin : this.z > zMax ? zMax : this.z;
+  }
+  static normalize(v) {
+    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    return new _Vec3(v.x / v.distance, v.y / v.distance, v.z / v.distance);
+  }
+  static distance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    const z = v1.z - v1.z;
+    return Math.sqrt(x * x + y * y + z * z);
+  }
+  static make(x, y, z) {
+    return new _Vec3(x, y, z);
+  }
+  static add(v1, v2) {
+    return new _Vec3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
+  }
+  static sub(v1, v2) {
+    return new _Vec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
+  }
+  static mult(v1, v2) {
+    return new _Vec3(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z);
+  }
+  static multScalar(v1, s) {
+    return new _Vec3(v1.x * s, v1.y * s, v1.z * s);
+  }
+  static div(v1, v2) {
+    if (v2.x == 0 || v2.y == 0 || v2.z == 0) throw new Error("v2 has some 0");
+    return new _Vec3(v1.x / v2.x, v1.y / v2.y, v1.z / v2.z);
+  }
+  static clone(v1) {
+    return new _Vec3(v1.x, v1.y, v1.z);
+  }
+  static dot(v1, v2) {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+  }
+  static cross(a, b) {
+    return new _Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+  }
+};
+
 // src/shapesVertices.ts
 var triangleVertices = new Float32Array([
   0,
@@ -486,117 +622,53 @@ var TABLE_INDICES = new Uint16Array([
   3
   // top
 ]);
-
-// src/glMath/vec4.ts
-var Vec4 = class _Vec4 {
-  x;
-  y;
-  z;
-  w;
-  distance;
-  constructor(x, y, z, w) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    this.w = w;
-    this.distance = Math.sqrt(x * x + y * y + z * z + w * w);
+function getFloorVertices(perlin3d) {
+  let lst = [];
+  const W = perlin3d.grid_width;
+  const H = perlin3d.grid_height;
+  const fake_normal = Vec3.make(0, 1, 0);
+  for (let i = H; i >= 0; i--) {
+    for (let j = 0; j <= W; j++) {
+      const color = Vec3.make(0.2, 0.2, 0.2);
+      const height = perlin3d.get(i / 20, j / 20);
+      const pos = Vec3.make(2 * j / H - 1, height, 2 * i / W - 1);
+      const vertex = new CoupledVertex(pos, color, fake_normal);
+      lst.push(vertex);
+    }
   }
-  convertToVec3() {
-    return Vec3.make(this.x, this.y, this.z);
+  for (let i = 1; i < H - 1; i++) {
+    for (let j = 1; j < W - 1; j++) {
+      const up = lst[(i - 1) * H + j].pos.y;
+      const down = lst[(i - 1) * H + j].pos.y;
+      const left = lst[i * H + j - 1].pos.y;
+      const right = lst[i * H + j + 1].pos.y;
+      lst[i * H + j].normal = Vec3.normalize(Vec3.make(up - down, 2, left - right));
+    }
   }
-  static normalize(v) {
-    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
-    return new _Vec4(v.x / v.distance, v.y / v.distance, v.z / v.distance, v.w / v.distance);
+  console.log(lst.length);
+  return webglVerticesFromCoupledVertices(lst);
+}
+function getFloorIndices(grid_width, grid_height) {
+  const indices = [];
+  const W = grid_width;
+  const H = grid_height;
+  for (let i = H; i >= 0; i--) {
+    for (let j = 0; j < W; j++) {
+      if (i != j) {
+        indices.push(i * H + j);
+        indices.push((i + 1) * H + j);
+        indices.push((i + 1) * H + j + 1);
+      }
+      if (i - 1 != j) {
+        indices.push(i * H + j);
+        indices.push((i + 1) * H + j + 1);
+        indices.push(i * H + j + 1);
+      }
+    }
   }
-  static distance(v1, v2) {
-    const x = v1.x - v2.x;
-    const y = v1.y - v2.y;
-    const z = v1.z - v1.z;
-    const w = v1.w - v1.w;
-    return Math.sqrt(x * x + y * y + z * z + w * w);
-  }
-  static make(x, y, z, w) {
-    return new _Vec4(x, y, z, w);
-  }
-  static add(v1, v2) {
-    return new _Vec4(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w + v2.w);
-  }
-  static sub(v1, v2) {
-    return new _Vec4(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z, v1.w - v2.w);
-  }
-  static mult(v1, v2) {
-    return new _Vec4(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z, v1.w * v2.w);
-  }
-  static clone(v1) {
-    return new _Vec4(v1.x, v1.y, v1.z, v1.w);
-  }
-  static dot(v1, v2) {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z + v1.w * v2.w;
-  }
-  static cross(a, b) {
-    return new _Vec4(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x, 1);
-  }
-};
-
-// src/glMath/vec3.ts
-var Vec3 = class _Vec3 {
-  x;
-  y;
-  z;
-  distance;
-  constructor(x, y, z) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    this.distance = Math.sqrt(x * x + y * y + z * z);
-  }
-  convertVec4() {
-    return new Vec4(this.x, this.y, this.z, 1);
-  }
-  clamp(xMin, xMax, yMin, yMax, zMin, zMax) {
-    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
-    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
-    this.z = this.z < zMin ? zMin : this.z > zMax ? zMax : this.z;
-  }
-  static normalize(v) {
-    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
-    return new _Vec3(v.x / v.distance, v.y / v.distance, v.z / v.distance);
-  }
-  static distance(v1, v2) {
-    const x = v1.x - v2.x;
-    const y = v1.y - v2.y;
-    const z = v1.z - v1.z;
-    return Math.sqrt(x * x + y * y + z * z);
-  }
-  static make(x, y, z) {
-    return new _Vec3(x, y, z);
-  }
-  static add(v1, v2) {
-    return new _Vec3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
-  }
-  static sub(v1, v2) {
-    return new _Vec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
-  }
-  static mult(v1, v2) {
-    return new _Vec3(v1.x * v2.x, v1.y * v2.y, v1.z * v2.z);
-  }
-  static multScalar(v1, s) {
-    return new _Vec3(v1.x * s, v1.y * s, v1.z * s);
-  }
-  static div(v1, v2) {
-    if (v2.x == 0 || v2.y == 0 || v2.z == 0) throw new Error("v2 has some 0");
-    return new _Vec3(v1.x / v2.x, v1.y / v2.y, v1.z / v2.z);
-  }
-  static clone(v1) {
-    return new _Vec3(v1.x, v1.y, v1.z);
-  }
-  static dot(v1, v2) {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-  }
-  static cross(a, b) {
-    return new _Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
-  }
-};
+  console.log(indices.slice(17 * 3, 19 * 3));
+  return new Uint16Array(indices);
+}
 
 // src/glMath/mat4x4.ts
 var Mat4x4 = class _Mat4x4 {
@@ -1019,6 +1091,55 @@ var Camera = class {
   }
 };
 
+// src/Light.ts
+var Light = class extends Shape {
+  constructor(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices, color) {
+    super(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices);
+    this.color = color;
+  }
+};
+
+// src/Perlin3d.ts
+function fade(t) {
+  return 6 * Math.pow(t, 5) - 15 * Math.pow(t, 4) + 10 * Math.pow(t, 3);
+}
+var Perlin3d = class {
+  grid;
+  grid_width;
+  grid_height;
+  constructor(grid_width, grid_height) {
+    this.grid_height = grid_height;
+    this.grid_width = grid_width;
+    this.grid = [];
+    for (let i = 0; i < grid_width; i++) {
+      let lst = [];
+      for (let j = 0; j < grid_height; j++) {
+        lst.push(Vec2.normalize(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random())));
+      }
+      this.grid.push(lst);
+    }
+  }
+  get(x = 0, y = 0) {
+    if (x < 0) x *= -1;
+    if (y < 0) y *= -1;
+    const percX = x - Math.floor(x);
+    const percY = y - Math.floor(y);
+    const iX = Math.floor(x) % this.grid_width;
+    const iY = Math.floor(y) % this.grid_height;
+    const vec = Vec2.make(percX, percY);
+    const d00 = -Vec2.dot(Vec2.sub(vec, Vec2.make(0, 0)), this.grid[iX][iY]);
+    const d10 = -Vec2.dot(Vec2.sub(vec, Vec2.make(1, 0)), this.grid[iX + 1][iY]);
+    const d01 = -Vec2.dot(Vec2.sub(vec, Vec2.make(0, 1)), this.grid[iX][iY + 1]);
+    const d11 = -Vec2.dot(Vec2.sub(vec, Vec2.make(1, 1)), this.grid[iX + 1][iY + 1]);
+    const u = fade(percX);
+    const v = fade(percY);
+    const ix0 = d00 * (1 - u) + d10 * u;
+    const ix1 = d01 * (1 - u) + d11 * u;
+    const value = ix0 * (1 - v) + ix1 * v;
+    return value;
+  }
+};
+
 // src/Game.ts
 var Game = class {
   cubeVertices;
@@ -1027,6 +1148,7 @@ var Game = class {
   tableIndices;
   cubeVao;
   tableVao;
+  floorVao;
   total_time;
   shapes;
   width;
@@ -1036,10 +1158,10 @@ var Game = class {
   moveVector;
   mouseMoveVector;
   lastMousePos;
-  lightColor;
-  lightPos;
+  light;
   Fov;
   pCamera;
+  perlin3d;
   constructor(gl, width, height, shaders) {
     this.width = width;
     this.height = height;
@@ -1047,17 +1169,19 @@ var Game = class {
     this.moveVector = Vec3.make(0, 0, 0);
     this.mouseMoveVector = Vec2.make(0, 0);
     this.lastMousePos = Vec2.make(0, 0);
-    this.lightColor = Vec3.make(1, 1, 1);
-    this.lightPos = Vec3.make(4, 4, 2);
-    this.Fov = 1;
+    this.perlin3d = new Perlin3d(100, 100);
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 200);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
+    const floorVerticesData = getFloorVertices(this.perlin3d);
+    const floorIndicesData = getFloorIndices(this.perlin3d.grid_width, this.perlin3d.grid_height);
     const cubeVertices = createStaticBufferData(gl, CUBE_VERTICES);
     const tableVertices = createStaticBufferData(gl, TABLE_VERTICES);
+    const floorVertices = createStaticBufferData(gl, floorVerticesData);
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
     const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
+    const floorIndices = createStaticIndexBuffer(gl, floorIndicesData);
     if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices) {
       showError(`Failed to create some buffers`);
     }
@@ -1068,18 +1192,14 @@ var Game = class {
     const vPosLoc = this.shaderProgram.getAttrib(gl, "vPos");
     const vColorLoc = this.shaderProgram.getAttrib(gl, "vColor");
     const vNormalLoc = this.shaderProgram.getAttrib(gl, "vNormal");
-    const matWorldUni = this.shaderProgram.getUniform(gl, "matWorld");
-    const matViewProjUni = this.shaderProgram.getUniform(gl, "matViewProj");
     if (vPosLoc < 0 || vColorLoc < 0) {
       if (vPosLoc < 0) showError("vPos wasnt found");
       if (vColorLoc < 0) showError("vColor wasnt found");
       return;
     }
-    if (!matViewProjUni || !matWorldUni) {
-      showError(`Data: ${matViewProjUni}, ${matWorldUni}`);
-    }
     this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc);
     this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc);
+    this.floorVao = create3dPosColorInterleavedVao(gl, floorVertices, floorIndices, vPosLoc, vColorLoc, vNormalLoc);
     if (!this.cubeVao || !this.tableVao) {
       showError("Vao were not created");
     }
@@ -1087,14 +1207,20 @@ var Game = class {
     gl.viewport(0, 0, this.width, this.height);
     const UP_VEC2 = Vec3.make(0, 1, 0);
     this.shapes = [];
-    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(1, 0.1, 1), UP_VEC2, 0, this.shaderProgram, this.tableVao, TABLE_INDICES.length));
-    this.shapes.push(new Shape(Vec3.make(0, 1, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC2, 0, this.shaderProgram, this.cubeVao, CUBE_INDICES.length));
-    this.shapes.push(new Shape(Vec3.make(2, 1, -1), Vec3.make(1, 1, 1), UP_VEC2, 0, this.shaderProgram, this.cubeVao, CUBE_INDICES.length));
-    this.shapes.push(new Shape(this.lightPos, Vec3.make(0.2, 0.2, 0.2), UP_VEC2, 0, this.lightShaderProgram, this.cubeVao, CUBE_INDICES.length));
+    const size = 5;
+    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(size, 1, size), UP_VEC2, 0, this.shaderProgram, this.floorVao, floorIndicesData.length));
+    this.light = new Light(
+      Vec3.make(4, 4, 2),
+      Vec3.make(0.2, 0.2, 0.2),
+      UP_VEC2,
+      0,
+      this.lightShaderProgram,
+      this.cubeVao,
+      CUBE_INDICES.length,
+      Vec3.make(1, 1, 1)
+    );
   }
   handleKeyDown(e) {
-    if (e.key == "o") this.Fov += 0.1;
-    if (e.key == "i") this.Fov -= 0.1;
     if (e.key == "w")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
     if (e.key == "a")
@@ -1135,20 +1261,20 @@ var Game = class {
   draw(gl) {
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
     this.shaderProgram.bind(gl);
     gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightColor"), this.lightColor.x, this.lightColor.y, this.lightColor.z);
-    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightPos"), this.lightPos.x, this.lightPos.y, this.lightPos.z);
+    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightPos"), this.light.pos.x, this.light.pos.y, this.light.pos.z);
     gl.uniform3f(this.shaderProgram.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     this.lightShaderProgram.bind(gl);
     gl.uniformMatrix4fv(this.lightShaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.lightShaderProgram.getUniform(gl, "lightColor"), this.lightColor.x, this.lightColor.y, this.lightColor.z);
+    gl.uniform3f(this.lightShaderProgram.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
+    this.light.draw(gl);
   }
 };
 
@@ -1181,6 +1307,7 @@ function initGame(data) {
     const now = performance.now();
     dt = (now - lastTime) / 5;
     lastTime = now;
+    console.log("fps: ", dt);
     game.update(dt);
     if (!gl) return;
     game.draw(gl);

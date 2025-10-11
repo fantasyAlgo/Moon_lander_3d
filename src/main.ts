@@ -38,7 +38,6 @@ function initGame(data){
     const now = performance.now();
     dt = (now-lastTime)/5;
     lastTime = now;
-
     game.update(dt);
 
     if (!gl) return;

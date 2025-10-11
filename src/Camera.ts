@@ -14,6 +14,7 @@ export class Camera {
     this.pos = initial_pos;
     this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
   }
+
   update(moveVec : Vec3, mouseMoveVec: Vec2, dt : number){
     const SENSIBILITY = 0.3;
 

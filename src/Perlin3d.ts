@@ -15,7 +15,7 @@ export class Perlin3d {
     for (let i = 0; i < grid_width; i++) {
       let lst : Vec2[] = [];
       for (let j = 0; j < grid_height; j++) {
-        lst.push( Vec2.normalize(Vec2.make(1 - 2.0*Math.random(), 1 - 2.0*Math.random())) );
+        lst.push( Vec2.normalize(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random())) );
       }
       this.grid.push(lst);
     }
@@ -24,9 +24,9 @@ export class Perlin3d {
     if (x < 0) x*=-1;
     if (y < 0) y*=-1;
     const percX = x - Math.floor(x);
-    const percY = x - Math.floor(x);
+    const percY = y - Math.floor(y);
     const iX : number = Math.floor(x)%this.grid_width;
-    const iY : number = Math.floor(x)%this.grid_height;
+    const iY : number = Math.floor(y)%this.grid_height;
     const vec : Vec2 = Vec2.make(percX, percY);
 
     const d00 : number = -Vec2.dot(Vec2.sub(vec , Vec2.make(0.0, 0.0)), this.grid[iX][iY]);
