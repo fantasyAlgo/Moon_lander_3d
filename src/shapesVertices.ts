@@ -1,4 +1,5 @@
 import { CoupledVertex, webglVerticesFromCoupledVertices } from "./CoupledVertex";
+import { Mat4x4 } from "./glMath/mat4x4";
 import { Vec3 } from "./glMath/vec3";
 import { Perlin3d } from "./Perlin3d";
 
@@ -88,8 +89,9 @@ export function getFloorVertices(perlin3d : Perlin3d) : Float32Array {
   const fake_normal = Vec3.make(0, 1, 0);
   for (let i = H; i >= 0; i--) {
     for (let j = 0.0; j <= W; j++) {
-      const color : Vec3 = Vec3.make(0.2, 0.2, 0.2);
       const height = perlin3d.get(i/20.0, j/20.0);
+      const rValue = Math.random()/50.0;
+      const color : Vec3 = Vec3.add(Vec3.make(0.2+height*0.01, 0.2+height*0.01, 0.2+height*0.01), Vec3.make(rValue, rValue, rValue));
       const pos : Vec3 = Vec3.make(2.0*j/H - 1.0, height, 2.0*i/W - 1.0);
       const vertex : CoupledVertex = new CoupledVertex(pos, color, fake_normal);
       lst.push(vertex);

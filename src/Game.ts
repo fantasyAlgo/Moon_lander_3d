@@ -53,7 +53,7 @@ export class Game {
     this.moveVector = Vec3.make(0, 0, 0);
     this.mouseMoveVector = Vec2.make(0, 0);
     this.lastMousePos = Vec2.make(0, 0);
-    this.perlin3d = new Perlin3d(100, 100);
+    this.perlin3d = new Perlin3d(64, 64);
     //console.log("perlin: ", this.perlin3d.get(0.2, 0.2));
 
 

@@ -4,6 +4,37 @@ function fade(t : number){
   return 6*Math.pow(t, 5) - 15*Math.pow(t, 4) + 10*Math.pow(t, 3);
 }
 export class Perlin3d {
+  grid_width : number;
+  grid_height : number;
+  octaves : Octave[];
+
+  constructor(grid_width : number, grid_height : number, n_octaves : number = 2){
+    this.grid_height = grid_height;
+    this.grid_width = grid_width;
+    this.octaves = [];
+    let gw = grid_width;
+    let gh = grid_height;
+    for (let i = 0; i < n_octaves; i++){
+      this.octaves.push(new Octave(gw, gh));
+      gw *= 2.0;
+      gh *= 2.0;
+    }
+  }
+  get(x : number = 0, y : number = 0){
+    let copyX = x;
+    let copyY = y;
+    let value = 0.0;
+    for (let i = 0; i < this.octaves.length; i++){
+      copyX *= 2.0;
+      copyY *= 2.0;
+      value += this.octaves[i].get(copyX, copyY);
+    }
+    return value/this.octaves.length;
+  }
+}
+
+
+export class Octave {
   grid : Vec2[][];
   grid_width : number;
   grid_height : number;
@@ -43,3 +74,4 @@ export class Perlin3d {
 
   }
 }
+

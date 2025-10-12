@@ -629,8 +629,9 @@ function getFloorVertices(perlin3d) {
   const fake_normal = Vec3.make(0, 1, 0);
   for (let i = H; i >= 0; i--) {
     for (let j = 0; j <= W; j++) {
-      const color = Vec3.make(0.2, 0.2, 0.2);
       const height = perlin3d.get(i / 20, j / 20);
+      const rValue = Math.random() / 50;
+      const color = Vec3.add(Vec3.make(0.2 + height * 0.01, 0.2 + height * 0.01, 0.2 + height * 0.01), Vec3.make(rValue, rValue, rValue));
       const pos = Vec3.make(2 * j / H - 1, height, 2 * i / W - 1);
       const vertex = new CoupledVertex(pos, color, fake_normal);
       lst.push(vertex);
@@ -1104,6 +1105,34 @@ function fade(t) {
   return 6 * Math.pow(t, 5) - 15 * Math.pow(t, 4) + 10 * Math.pow(t, 3);
 }
 var Perlin3d = class {
+  grid_width;
+  grid_height;
+  octaves;
+  constructor(grid_width, grid_height, n_octaves = 2) {
+    this.grid_height = grid_height;
+    this.grid_width = grid_width;
+    this.octaves = [];
+    let gw = grid_width;
+    let gh = grid_height;
+    for (let i = 0; i < n_octaves; i++) {
+      this.octaves.push(new Octave(gw, gh));
+      gw *= 2;
+      gh *= 2;
+    }
+  }
+  get(x = 0, y = 0) {
+    let copyX = x;
+    let copyY = y;
+    let value = 0;
+    for (let i = 0; i < this.octaves.length; i++) {
+      copyX *= 2;
+      copyY *= 2;
+      value += this.octaves[i].get(copyX, copyY);
+    }
+    return value / this.octaves.length;
+  }
+};
+var Octave = class {
   grid;
   grid_width;
   grid_height;
@@ -1169,7 +1198,7 @@ var Game = class {
     this.moveVector = Vec3.make(0, 0, 0);
     this.mouseMoveVector = Vec2.make(0, 0);
     this.lastMousePos = Vec2.make(0, 0);
-    this.perlin3d = new Perlin3d(100, 100);
+    this.perlin3d = new Perlin3d(64, 64);
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 200);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -1307,7 +1336,6 @@ function initGame(data) {
     const now = performance.now();
     dt = (now - lastTime) / 5;
     lastTime = now;
-    console.log("fps: ", dt);
     game.update(dt);
     if (!gl) return;
     game.draw(gl);
