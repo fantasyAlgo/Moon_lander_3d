@@ -1,4 +1,4 @@
-import { showError } from "./helpers";
+import { showError } from "./glHelpers.ts";
 
 export class ShaderProgram {
   id : WebGLProgram;

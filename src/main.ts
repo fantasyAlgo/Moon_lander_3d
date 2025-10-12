@@ -1,5 +1,5 @@
 import { Game } from "./Game.ts";
-import { showError } from "./helpers.ts";
+import { showError } from "./glHelpers.ts";
 import { vShaderCode } from "./vertexShader.ts";
 import { fShaderCode } from "./fragmentShader.ts";
 import { Mat4x4 } from "./glMath/mat4x4.ts";
@@ -19,7 +19,6 @@ function initGame(data){
     showError("Canvas nope");
     return;
   }
-
 
   const gl = canvas.getContext('webgl2');
   if (!gl){

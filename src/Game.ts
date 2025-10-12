@@ -1,4 +1,4 @@
-import { create3dPosColorInterleavedVao, createStaticBufferData, createStaticIndexBuffer, showError } from "./helpers";
+import { create3dPosColorInterleavedVao, createStaticBufferData, createStaticIndexBuffer, makeHeightTextureFromData, makeRandomMatrix, showError } from "./glHelpers.ts";
 import { ShaderProgram } from "./shaderProgram";
 import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./shapesVertices";
 
@@ -46,6 +46,8 @@ export class Game {
   pCamera : Camera;
 
   perlin3d : Perlin3d;
+  noiseTexture : WebGLTexture;
+
   constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object){
     this.width = width;
     this.height = height;
@@ -57,8 +59,8 @@ export class Game {
     //console.log("perlin: ", this.perlin3d.get(0.2, 0.2));
 
 
-
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1.0, 0.01, 200);
+    
 
 
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
@@ -71,7 +73,6 @@ export class Game {
     const cubeVertices = createStaticBufferData(gl, CUBE_VERTICES);
     const tableVertices = createStaticBufferData(gl, TABLE_VERTICES);
     const floorVertices = createStaticBufferData(gl, floorVerticesData);
-
 
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
     const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
@@ -90,34 +91,36 @@ export class Game {
     const vPosLoc = this.shaderProgram.getAttrib(gl, "vPos");   
     const vColorLoc = this.shaderProgram.getAttrib(gl, "vColor"); 
     const vNormalLoc = this.shaderProgram.getAttrib(gl, "vNormal"); 
-
+    const vUVLoc= this.shaderProgram.getAttrib(gl, "vUV"); 
 
     if (vPosLoc < 0 || vColorLoc < 0 ){
       if (vPosLoc < 0) showError("vPos wasnt found");
       if (vColorLoc < 0) showError("vColor wasnt found");
       return;
     }
+    const noise_width = 256*2.0;
+    this.noiseTexture = makeHeightTextureFromData(gl, makeRandomMatrix(noise_width,noise_width), noise_width, noise_width);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
+    gl.uniform1i(this.shaderProgram.getUniform(gl, "u_noiseTex"), 0);
 
-    this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc);
-    this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc);
-    this.floorVao = create3dPosColorInterleavedVao(gl, floorVertices, floorIndices, vPosLoc, vColorLoc, vNormalLoc);
+    this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.floorVao = create3dPosColorInterleavedVao(gl, floorVertices, floorIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
 
-    if (!this.cubeVao || !this.tableVao){
-      showError("Vao were not created");
-    }
+
+    if (!this.cubeVao || !this.tableVao) showError("Vao were not created");
     console.log("error: ", gl.getError());
 
     gl.viewport(0, 0, this.width, this.height);
 
     const UP_VEC = Vec3.make(0, 1, 0);
     this.shapes = [];
-    //this.shapes.push(new Shape(Vec3.make(0, 0.0, 0), Vec3.make(1, 0.1, 1), UP_VEC, 0, this.shaderProgram, this.tableVao, TABLE_INDICES.length));
     //this.shapes.push(new Shape(Vec3.make(0, 1.0, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.shaderProgram, this.cubeVao, CUBE_INDICES.length));
     //this.shapes.push(new Shape(Vec3.make(2, 1.0, -1), Vec3.make(1.0, 1.0, 1.0), UP_VEC, 0, this.shaderProgram, this.cubeVao, CUBE_INDICES.length));
+    
     const size = 5;
     this.shapes.push(new Shape(Vec3.make(0, 0 , 0), Vec3.make(size, 1, size), UP_VEC, 0, this.shaderProgram, this.floorVao, floorIndicesData.length));
-
-
     this.light = new Light(
       Vec3.make(4, 4.0, 2), Vec3.make(0.2, 0.2, 0.2), UP_VEC, 0, this.lightShaderProgram, this.cubeVao, CUBE_INDICES.length, Vec3.make(1,1,1)
     );

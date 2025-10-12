@@ -1,4 +1,5 @@
-import { Vec3 } from "./glMath/vec3";
+import { Vec3 } from "./glMath/vec3.ts";
+import { Vec2 } from "./glMath/Vec2.ts";
 
 
 export class CoupledVertex {
@@ -6,6 +7,7 @@ export class CoupledVertex {
     public pos : Vec3,
     public color : Vec3,
     public normal : Vec3,
+    public uv : Vec2, 
   ){}
 }
 
@@ -24,6 +26,10 @@ export function webglVerticesFromCoupledVertices(vertices : CoupledVertex[] ) : 
     lst.push(vertices[i].normal.x);
     lst.push(vertices[i].normal.y);
     lst.push(vertices[i].normal.z);
+
+    lst.push(vertices[i].uv.x);
+    lst.push(vertices[i].uv.y);
+
   }
   return new Float32Array(lst);
 }

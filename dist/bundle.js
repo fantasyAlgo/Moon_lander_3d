@@ -1,4 +1,4 @@
-// src/helpers.ts
+// src/glHelpers.ts
 function showError(errorText) {
   console.error(errorText);
   const errorBoxDiv = document.getElementById("error-box");
@@ -31,7 +31,7 @@ function createStaticIndexBuffer(gl, data) {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
   return buffer;
 }
-function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib, normalAttrib) {
+function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib, normalAttrib, uvAttrib) {
   const vao = gl.createVertexArray();
   if (!vao) {
     throw new Error("A problem occurred with the creation of the VAO");
@@ -40,13 +40,14 @@ function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib
   gl.enableVertexAttribArray(posAttrib);
   gl.enableVertexAttribArray(colorAttrib);
   gl.enableVertexAttribArray(normalAttrib);
+  gl.enableVertexAttribArray(uvAttrib);
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
   gl.vertexAttribPointer(
     posAttrib,
     3,
     gl.FLOAT,
     false,
-    9 * Float32Array.BYTES_PER_ELEMENT,
+    11 * Float32Array.BYTES_PER_ELEMENT,
     0
   );
   gl.vertexAttribPointer(
@@ -54,7 +55,7 @@ function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib
     3,
     gl.FLOAT,
     false,
-    9 * Float32Array.BYTES_PER_ELEMENT,
+    11 * Float32Array.BYTES_PER_ELEMENT,
     3 * Float32Array.BYTES_PER_ELEMENT
   );
   gl.vertexAttribPointer(
@@ -62,14 +63,49 @@ function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib
     3,
     gl.FLOAT,
     false,
-    9 * Float32Array.BYTES_PER_ELEMENT,
+    11 * Float32Array.BYTES_PER_ELEMENT,
     6 * Float32Array.BYTES_PER_ELEMENT
+  );
+  gl.vertexAttribPointer(
+    uvAttrib,
+    2,
+    gl.FLOAT,
+    false,
+    11 * Float32Array.BYTES_PER_ELEMENT,
+    9 * Float32Array.BYTES_PER_ELEMENT
   );
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
   gl.bindVertexArray(null);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
   return vao;
+}
+function makeRandomMatrix(width, height) {
+  let lst = [];
+  for (let i = 0; i < width * height; i++) {
+    lst.push(Math.random());
+  }
+  return new Float32Array(lst);
+}
+function makeHeightTextureFromData(gl, data, width, height) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.R32F,
+    width,
+    height,
+    0,
+    gl.RED,
+    gl.FLOAT,
+    data
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  return texture;
 }
 
 // src/shaderProgram.ts
@@ -133,10 +169,11 @@ var ShaderProgram = class {
 
 // src/CoupledVertex.ts
 var CoupledVertex = class {
-  constructor(pos, color, normal) {
+  constructor(pos, color, normal, uv) {
     this.pos = pos;
     this.color = color;
     this.normal = normal;
+    this.uv = uv;
   }
 };
 function webglVerticesFromCoupledVertices(vertices) {
@@ -152,9 +189,61 @@ function webglVerticesFromCoupledVertices(vertices) {
     lst.push(vertices[i].normal.x);
     lst.push(vertices[i].normal.y);
     lst.push(vertices[i].normal.z);
+    lst.push(vertices[i].uv.x);
+    lst.push(vertices[i].uv.y);
   }
   return new Float32Array(lst);
 }
+
+// src/glMath/Vec2.ts
+var Vec2 = class _Vec2 {
+  x;
+  y;
+  distance;
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.distance = Math.sqrt(x * x + y * y);
+  }
+  clamp(xMin, xMax, yMin, yMax) {
+    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
+    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
+  }
+  static normalize(v) {
+    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    return new _Vec2(v.x / v.distance, v.y / v.distance);
+  }
+  static distance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    return Math.sqrt(x * x + y * y);
+  }
+  static make(x, y) {
+    return new _Vec2(x, y);
+  }
+  static add(v1, v2) {
+    return new _Vec2(v1.x + v2.x, v1.y + v2.y);
+  }
+  static sub(v1, v2) {
+    return new _Vec2(v1.x - v2.x, v1.y - v2.y);
+  }
+  static mult(v1, v2) {
+    return new _Vec2(v1.x * v2.x, v1.y * v2.y);
+  }
+  static multScalar(v1, s) {
+    return new _Vec2(v1.x * s, v1.y * s);
+  }
+  static div(v1, v2) {
+    if (v2.x == 0 || v2.y == 0) throw new Error("v2 has some 0");
+    return new _Vec2(v1.x / v2.x, v1.y / v2.y);
+  }
+  static clone(v1) {
+    return new _Vec2(v1.x, v1.y);
+  }
+  static dot(v1, v2) {
+    return v1.x * v2.x + v1.y * v2.y;
+  }
+};
 
 // src/glMath/vec4.ts
 var Vec4 = class _Vec4 {
@@ -309,6 +398,8 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   1,
+  0,
+  0,
   // 0
   1,
   -1,
@@ -319,6 +410,8 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   1,
+  0,
+  0,
   // 1
   1,
   1,
@@ -329,6 +422,8 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   1,
+  0,
+  0,
   // 2
   -1,
   1,
@@ -339,8 +434,10 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   1,
+  0,
+  0,
   // 3
-  // Back face (normal: 0, 0, -1)
+  // Back face (normal: 0, 0, -1)           0.0, 0.0,
   -1,
   -1,
   -1,
@@ -350,6 +447,8 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   -1,
+  0,
+  0,
   // 4
   -1,
   1,
@@ -360,6 +459,8 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   -1,
+  0,
+  0,
   // 5
   1,
   1,
@@ -370,6 +471,8 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   -1,
+  0,
+  0,
   // 6
   1,
   -1,
@@ -380,8 +483,10 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   -1,
+  0,
+  0,
   // 7
-  // Top face (normal: 0, 1, 0)
+  // Top face (normal: 0, 1, 0)             0.0, 0.0,
   -1,
   1,
   -1,
@@ -391,135 +496,165 @@ var CUBE_VERTICES = new Float32Array([
   0,
   1,
   0,
-  -1,
-  1,
-  1,
-  0,
-  1,
-  0,
-  0,
-  1,
-  0,
-  1,
-  1,
-  1,
-  0,
-  1,
-  0,
-  0,
-  1,
-  0,
-  1,
-  1,
-  -1,
-  0,
-  1,
-  0,
-  0,
-  1,
-  0,
-  // Bottom face (normal: 0, -1, 0)
-  -1,
-  -1,
-  -1,
-  0,
-  1,
-  0,
-  0,
-  -1,
-  0,
-  1,
-  -1,
-  -1,
-  0,
-  1,
-  0,
-  0,
-  -1,
-  0,
-  1,
-  -1,
-  1,
-  0,
-  1,
-  0,
-  0,
-  -1,
-  0,
-  -1,
-  -1,
-  1,
-  0,
-  1,
-  0,
-  0,
-  -1,
-  0,
-  // Right face (normal: 1, 0, 0)
-  1,
-  -1,
-  -1,
-  0,
-  0,
-  1,
-  1,
-  0,
-  0,
-  1,
-  1,
-  -1,
-  0,
-  0,
-  1,
-  1,
-  0,
-  0,
-  1,
-  1,
-  1,
-  0,
-  0,
-  1,
-  1,
-  0,
-  0,
-  1,
-  -1,
-  1,
-  0,
-  0,
-  1,
-  1,
-  0,
-  0,
-  // Left face (normal: -1, 0, 0)
-  -1,
-  -1,
-  -1,
-  0,
-  0,
-  1,
-  -1,
-  0,
-  0,
-  -1,
-  -1,
-  1,
-  0,
-  0,
-  1,
-  -1,
   0,
   0,
   -1,
   1,
   1,
   0,
+  1,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  1,
+  1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  1,
+  1,
+  -1,
+  0,
+  1,
+  0,
+  0,
+  1,
+  0,
+  0,
+  0,
+  // Bottom face (normal: 0, -1, 0)         0.0, 0.0,
+  -1,
+  -1,
+  -1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  0,
+  0,
+  0,
+  1,
+  -1,
+  -1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  0,
+  0,
+  0,
+  1,
+  -1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  0,
+  0,
+  0,
+  -1,
+  -1,
+  1,
+  0,
+  1,
+  0,
+  0,
+  -1,
+  0,
+  0,
+  0,
+  // Right face (normal: 1, 0, 0)           0.0, 0.0,
+  1,
+  -1,
+  -1,
+  0,
+  0,
+  1,
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  -1,
+  0,
+  0,
+  1,
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  1,
+  1,
+  0,
+  0,
+  1,
+  1,
+  0,
+  0,
+  0,
+  0,
+  1,
+  -1,
+  1,
+  0,
+  0,
+  1,
+  1,
+  0,
+  0,
+  0,
+  0,
+  // Left face (normal: -1, 0, 0)           0.0, 0.0,
+  -1,
+  -1,
+  -1,
+  0,
   0,
   1,
   -1,
   0,
   0,
+  0,
+  0,
+  -1,
+  -1,
+  1,
+  0,
+  0,
+  1,
+  -1,
+  0,
+  0,
+  0,
+  0,
+  -1,
+  1,
+  1,
+  0,
+  0,
+  1,
+  -1,
+  0,
+  0,
+  0,
+  0,
   -1,
   1,
   -1,
@@ -527,6 +662,8 @@ var CUBE_VERTICES = new Float32Array([
   0,
   1,
   -1,
+  0,
+  0,
   0,
   0
 ]);
@@ -585,33 +722,41 @@ var TABLE_VERTICES = new Float32Array([
   0,
   1,
   0,
-  -10,
   0,
-  10,
-  0.2,
-  0.2,
-  0.2,
-  0,
-  1,
-  0,
-  10,
-  0,
-  10,
-  0.2,
-  0.2,
-  0.2,
-  0,
-  1,
-  0,
-  10,
   0,
   -10,
+  0,
+  10,
   0.2,
   0.2,
   0.2,
   0,
   1,
-  0
+  0,
+  0,
+  1,
+  10,
+  0,
+  10,
+  0.2,
+  0.2,
+  0.2,
+  0,
+  1,
+  0,
+  1,
+  1,
+  10,
+  0,
+  -10,
+  0.2,
+  0.2,
+  0.2,
+  0,
+  1,
+  0,
+  1,
+  1
 ]);
 var TABLE_INDICES = new Uint16Array([
   0,
@@ -631,9 +776,10 @@ function getFloorVertices(perlin3d) {
     for (let j = 0; j <= W; j++) {
       const height = perlin3d.get(i / 20, j / 20);
       const rValue = Math.random() / 50;
-      const color = Vec3.add(Vec3.make(0.2 + height * 0.01, 0.2 + height * 0.01, 0.2 + height * 0.01), Vec3.make(rValue, rValue, rValue));
+      const color = Vec3.add(Vec3.make(0.2 + height * 0.1, 0.2 + height * 0.1, 0.2 + height * 0.1), Vec3.make(rValue, rValue, rValue));
       const pos = Vec3.make(2 * j / H - 1, height, 2 * i / W - 1);
-      const vertex = new CoupledVertex(pos, color, fake_normal);
+      const uv = Vec2.make(1 + pos.x / 2, 1 + pos.z / 2);
+      const vertex = new CoupledVertex(pos, color, fake_normal, uv);
       lst.push(vertex);
     }
   }
@@ -1016,56 +1162,6 @@ var Shape = class {
   }
 };
 
-// src/glMath/Vec2.ts
-var Vec2 = class _Vec2 {
-  x;
-  y;
-  distance;
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.distance = Math.sqrt(x * x + y * y);
-  }
-  clamp(xMin, xMax, yMin, yMax) {
-    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
-    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
-  }
-  static normalize(v) {
-    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
-    return new _Vec2(v.x / v.distance, v.y / v.distance);
-  }
-  static distance(v1, v2) {
-    const x = v1.x - v2.x;
-    const y = v1.y - v2.y;
-    return Math.sqrt(x * x + y * y);
-  }
-  static make(x, y) {
-    return new _Vec2(x, y);
-  }
-  static add(v1, v2) {
-    return new _Vec2(v1.x + v2.x, v1.y + v2.y);
-  }
-  static sub(v1, v2) {
-    return new _Vec2(v1.x - v2.x, v1.y - v2.y);
-  }
-  static mult(v1, v2) {
-    return new _Vec2(v1.x * v2.x, v1.y * v2.y);
-  }
-  static multScalar(v1, s) {
-    return new _Vec2(v1.x * s, v1.y * s);
-  }
-  static div(v1, v2) {
-    if (v2.x == 0 || v2.y == 0) throw new Error("v2 has some 0");
-    return new _Vec2(v1.x / v2.x, v1.y / v2.y);
-  }
-  static clone(v1) {
-    return new _Vec2(v1.x, v1.y);
-  }
-  static dot(v1, v2) {
-    return v1.x * v2.x + v1.y * v2.y;
-  }
-};
-
 // src/Camera.ts
 var UP_VEC = Vec3.make(0, 1, 0);
 var Camera = class {
@@ -1191,6 +1287,7 @@ var Game = class {
   Fov;
   pCamera;
   perlin3d;
+  noiseTexture;
   constructor(gl, width, height, shaders) {
     this.width = width;
     this.height = height;
@@ -1221,17 +1318,21 @@ var Game = class {
     const vPosLoc = this.shaderProgram.getAttrib(gl, "vPos");
     const vColorLoc = this.shaderProgram.getAttrib(gl, "vColor");
     const vNormalLoc = this.shaderProgram.getAttrib(gl, "vNormal");
+    const vUVLoc = this.shaderProgram.getAttrib(gl, "vUV");
     if (vPosLoc < 0 || vColorLoc < 0) {
       if (vPosLoc < 0) showError("vPos wasnt found");
       if (vColorLoc < 0) showError("vColor wasnt found");
       return;
     }
-    this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc);
-    this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc);
-    this.floorVao = create3dPosColorInterleavedVao(gl, floorVertices, floorIndices, vPosLoc, vColorLoc, vNormalLoc);
-    if (!this.cubeVao || !this.tableVao) {
-      showError("Vao were not created");
-    }
+    const noise_width = 256 * 2;
+    this.noiseTexture = makeHeightTextureFromData(gl, makeRandomMatrix(noise_width, noise_width), noise_width, noise_width);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
+    gl.uniform1i(this.shaderProgram.getUniform(gl, "u_noiseTex"), 0);
+    this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.floorVao = create3dPosColorInterleavedVao(gl, floorVertices, floorIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    if (!this.cubeVao || !this.tableVao) showError("Vao were not created");
     console.log("error: ", gl.getError());
     gl.viewport(0, 0, this.width, this.height);
     const UP_VEC2 = Vec3.make(0, 1, 0);
