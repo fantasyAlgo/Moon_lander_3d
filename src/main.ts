@@ -37,9 +37,9 @@ function initGame(data){
     const now = performance.now();
     dt = (now-lastTime)/5;
     lastTime = now;
-    game.update(dt);
 
     if (!gl) return;
+    game.update(gl, dt);
     game.draw(gl);
 
     requestAnimationFrame(step);
@@ -51,10 +51,10 @@ function initGame(data){
 
 try {
   (async () => {
-    const shader_source = "src/shaders"
+    const shader_source = "src/shaders";
     const shader_names = [
-      "fMain", "fLight", "vLight", "vMain"
-    ];
+      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor",
+    ]; // My automatic shader loader!
     let object = {};
     for (let i = 0; i < shader_names.length; i++)
       object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));

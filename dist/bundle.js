@@ -9,14 +9,14 @@ function showError(errorText) {
   errorElement.innerText = errorText;
   errorBoxDiv.appendChild(errorElement);
 }
-function createStaticBufferData(gl, data) {
+function createBufferData(gl, data, type) {
   const buffer = gl.createBuffer();
   if (!buffer) {
     showError("Failed to allocate buffer");
     throw new Error("Failed to allocate buffer");
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, data, type);
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
   return buffer;
 }
@@ -73,6 +73,37 @@ function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib
     false,
     11 * Float32Array.BYTES_PER_ELEMENT,
     9 * Float32Array.BYTES_PER_ELEMENT
+  );
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+  return vao;
+}
+function createFloorVao(gl, vertexBuffer, indexBuffer, posAttrib, normalAttrib) {
+  const vao = gl.createVertexArray();
+  if (!vao) {
+    throw new Error("A problem occurred with the creation of the VAO");
+  }
+  gl.bindVertexArray(vao);
+  gl.enableVertexAttribArray(posAttrib);
+  gl.enableVertexAttribArray(normalAttrib);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.vertexAttribPointer(
+    posAttrib,
+    3,
+    gl.FLOAT,
+    false,
+    6 * Float32Array.BYTES_PER_ELEMENT,
+    0
+  );
+  gl.vertexAttribPointer(
+    normalAttrib,
+    3,
+    gl.FLOAT,
+    false,
+    6 * Float32Array.BYTES_PER_ELEMENT,
+    3 * Float32Array.BYTES_PER_ELEMENT
   );
   gl.bindBuffer(gl.ARRAY_BUFFER, null);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -168,82 +199,25 @@ var ShaderProgram = class {
 };
 
 // src/CoupledVertex.ts
-var CoupledVertex = class {
-  constructor(pos, color, normal, uv) {
+var CoupledFloorVertex = class {
+  constructor(pos, normal) {
     this.pos = pos;
-    this.color = color;
     this.normal = normal;
-    this.uv = uv;
   }
 };
-function webglVerticesFromCoupledVertices(vertices) {
+function webglVerticesFromCoupledFloorVertices(vertices) {
   const lst = [];
   const size = vertices.length;
   for (let i = 0; i < size; i++) {
     lst.push(vertices[i].pos.x);
     lst.push(vertices[i].pos.y);
     lst.push(vertices[i].pos.z);
-    lst.push(vertices[i].color.x);
-    lst.push(vertices[i].color.y);
-    lst.push(vertices[i].color.z);
     lst.push(vertices[i].normal.x);
     lst.push(vertices[i].normal.y);
     lst.push(vertices[i].normal.z);
-    lst.push(vertices[i].uv.x);
-    lst.push(vertices[i].uv.y);
   }
   return new Float32Array(lst);
 }
-
-// src/glMath/Vec2.ts
-var Vec2 = class _Vec2 {
-  x;
-  y;
-  distance;
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.distance = Math.sqrt(x * x + y * y);
-  }
-  clamp(xMin, xMax, yMin, yMax) {
-    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
-    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
-  }
-  static normalize(v) {
-    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
-    return new _Vec2(v.x / v.distance, v.y / v.distance);
-  }
-  static distance(v1, v2) {
-    const x = v1.x - v2.x;
-    const y = v1.y - v2.y;
-    return Math.sqrt(x * x + y * y);
-  }
-  static make(x, y) {
-    return new _Vec2(x, y);
-  }
-  static add(v1, v2) {
-    return new _Vec2(v1.x + v2.x, v1.y + v2.y);
-  }
-  static sub(v1, v2) {
-    return new _Vec2(v1.x - v2.x, v1.y - v2.y);
-  }
-  static mult(v1, v2) {
-    return new _Vec2(v1.x * v2.x, v1.y * v2.y);
-  }
-  static multScalar(v1, s) {
-    return new _Vec2(v1.x * s, v1.y * s);
-  }
-  static div(v1, v2) {
-    if (v2.x == 0 || v2.y == 0) throw new Error("v2 has some 0");
-    return new _Vec2(v1.x / v2.x, v1.y / v2.y);
-  }
-  static clone(v1) {
-    return new _Vec2(v1.x, v1.y);
-  }
-  static dot(v1, v2) {
-    return v1.x * v2.x + v1.y * v2.y;
-  }
-};
 
 // src/glMath/vec4.ts
 var Vec4 = class _Vec4 {
@@ -767,19 +741,16 @@ var TABLE_INDICES = new Uint16Array([
   3
   // top
 ]);
-function getFloorVertices(perlin3d) {
+function getFloorVertices(perlin3d, chunk) {
   let lst = [];
   const W = perlin3d.grid_width;
   const H = perlin3d.grid_height;
-  const fake_normal = Vec3.make(0, 1, 0);
   for (let i = H; i >= 0; i--) {
     for (let j = 0; j <= W; j++) {
-      const height = perlin3d.get(i / 20, j / 20);
-      const rValue = Math.random() / 50;
-      const color = Vec3.add(Vec3.make(0.2 + height * 0.1, 0.2 + height * 0.1, 0.2 + height * 0.1), Vec3.make(rValue, rValue, rValue));
+      const height = perlin3d.get((i + chunk.x * H) / 20, (j + chunk.y * W) / 20);
+      const rValue = Math.random() / 40;
       const pos = Vec3.make(2 * j / H - 1, height, 2 * i / W - 1);
-      const uv = Vec2.make(1 + pos.x / 2, 1 + pos.z / 2);
-      const vertex = new CoupledVertex(pos, color, fake_normal, uv);
+      const vertex = new CoupledFloorVertex(pos, Vec3.make(0, rValue, 0));
       lst.push(vertex);
     }
   }
@@ -789,11 +760,12 @@ function getFloorVertices(perlin3d) {
       const down = lst[(i - 1) * H + j].pos.y;
       const left = lst[i * H + j - 1].pos.y;
       const right = lst[i * H + j + 1].pos.y;
-      lst[i * H + j].normal = Vec3.normalize(Vec3.make(up - down, 2, left - right));
+      lst[i * H + j].normal.x = up - down;
+      lst[i * H + j].normal.z = left - right;
     }
   }
   console.log(lst.length);
-  return webglVerticesFromCoupledVertices(lst);
+  return webglVerticesFromCoupledFloorVertices(lst);
 }
 function getFloorIndices(grid_width, grid_height) {
   const indices = [];
@@ -801,15 +773,15 @@ function getFloorIndices(grid_width, grid_height) {
   const H = grid_height;
   for (let i = H; i >= 0; i--) {
     for (let j = 0; j < W; j++) {
-      if (i != j) {
-        indices.push(i * H + j);
-        indices.push((i + 1) * H + j);
-        indices.push((i + 1) * H + j + 1);
-      }
       if (i - 1 != j) {
         indices.push(i * H + j);
         indices.push((i + 1) * H + j + 1);
         indices.push(i * H + j + 1);
+      }
+      if (i != j) {
+        indices.push(i * H + j);
+        indices.push((i + 1) * H + j);
+        indices.push((i + 1) * H + j + 1);
       }
     }
   }
@@ -1096,6 +1068,86 @@ var Mat4x4 = class _Mat4x4 {
   }
 };
 
+// src/glMath/vec2.ts
+var Vec2 = class _Vec2 {
+  x;
+  y;
+  distance;
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.distance = Math.sqrt(x * x + y * y);
+  }
+  clamp(xMin, xMax, yMin, yMax) {
+    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
+    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
+  }
+  equal(v) {
+    const EPS = 1e-3;
+    return Math.abs(v.x - this.x) < EPS && Math.abs(v.y - this.y) < EPS;
+  }
+  static normalize(v) {
+    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    return new _Vec2(v.x / v.distance, v.y / v.distance);
+  }
+  static distance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    return Math.sqrt(x * x + y * y);
+  }
+  static make(x, y) {
+    return new _Vec2(x, y);
+  }
+  static add(v1, v2) {
+    return new _Vec2(v1.x + v2.x, v1.y + v2.y);
+  }
+  static sub(v1, v2) {
+    return new _Vec2(v1.x - v2.x, v1.y - v2.y);
+  }
+  static mult(v1, v2) {
+    return new _Vec2(v1.x * v2.x, v1.y * v2.y);
+  }
+  static multScalar(v1, s) {
+    return new _Vec2(v1.x * s, v1.y * s);
+  }
+  static div(v1, v2) {
+    if (v2.x == 0 || v2.y == 0) throw new Error("v2 has some 0");
+    return new _Vec2(v1.x / v2.x, v1.y / v2.y);
+  }
+  static clone(v1) {
+    return new _Vec2(v1.x, v1.y);
+  }
+  static dot(v1, v2) {
+    return v1.x * v2.x + v1.y * v2.y;
+  }
+};
+
+// src/Camera.ts
+var UP_VEC = Vec3.make(0, 1, 0);
+var Camera = class {
+  pos;
+  forward;
+  perpective;
+  lookAtMatrix;
+  constructor(initial_pos, width, height, Fov, zNear, zFar) {
+    this.perpective = Mat4x4.perspective(height / width, Fov, zNear, zFar);
+    this.pos = initial_pos;
+    this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
+  }
+  update(moveVec, mouseMoveVec, dt) {
+    const SENSIBILITY = 0.3;
+    const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
+    const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1));
+    const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
+    this.pos = Vec3.add(this.pos, Vec3.multScalar(newMoveVec.convertToVec3(), dt * 0.01));
+    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY * dt * 0.01));
+    this.lookAtMatrix = this.getLookAt();
+  }
+  getLookAt() {
+    return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);
+  }
+};
+
 // src/glMath/Quat.ts
 var Quat = class _Quat {
   r;
@@ -1159,32 +1211,6 @@ var Shape = class {
     gl.bindVertexArray(this.vao);
     gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
-  }
-};
-
-// src/Camera.ts
-var UP_VEC = Vec3.make(0, 1, 0);
-var Camera = class {
-  pos;
-  forward;
-  perpective;
-  lookAtMatrix;
-  constructor(initial_pos, width, height, Fov, zNear, zFar) {
-    this.perpective = Mat4x4.perspective(height / width, Fov, zNear, zFar);
-    this.pos = initial_pos;
-    this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
-  }
-  update(moveVec, mouseMoveVec, dt) {
-    const SENSIBILITY = 0.3;
-    const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
-    const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1));
-    const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
-    this.pos = Vec3.add(this.pos, Vec3.multScalar(newMoveVec.convertToVec3(), dt * 0.01));
-    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY * dt * 0.01));
-    this.lookAtMatrix = this.getLookAt();
-  }
-  getLookAt() {
-    return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);
   }
 };
 
@@ -1265,21 +1291,79 @@ var Octave = class {
   }
 };
 
+// src/PerlinFloor.ts
+var PerlinFloor = class {
+  shape;
+  verticesVBO;
+  shader;
+  noiseTexture;
+  WIDTH = 5;
+  HEIGHT = 5;
+  cChunk;
+  constructor(gl, perlin3d, shader) {
+    this.shader = shader;
+    this.cChunk = Vec2.make(0, 0);
+    const floorVerticesData = getFloorVertices(perlin3d, Vec2.make(0, 0));
+    const floorIndicesData = getFloorIndices(perlin3d.grid_width, perlin3d.grid_height);
+    this.verticesVBO = createBufferData(gl, floorVerticesData, gl.DYNAMIC_DRAW);
+    const floorIndices = createStaticIndexBuffer(gl, floorIndicesData);
+    console.log("error 2: ", gl.getError());
+    const vPosLoc = shader.getAttrib(gl, "vPos");
+    const vNormalLoc = shader.getAttrib(gl, "vNormal");
+    const noise_width = 256 * 2;
+    this.noiseTexture = makeHeightTextureFromData(gl, makeRandomMatrix(noise_width, noise_width), noise_width, noise_width);
+    shader.bind(gl);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
+    gl.uniform1i(shader.getUniform(gl, "u_noiseTex"), 0);
+    const vao = createFloorVao(gl, this.verticesVBO, floorIndices, vPosLoc, vNormalLoc);
+    const UP_VEC2 = Vec3.make(0, 1, 0);
+    this.shape = new Shape(Vec3.make(0, 0, 0), Vec3.make(this.WIDTH, 1, this.HEIGHT), UP_VEC2, 0, shader, vao, floorIndicesData.length);
+    shader.unbind(gl);
+  }
+  updateChunk(gl, perlin3d) {
+    console.log("hes using us!");
+    const iX = (this.cChunk.x - this.WIDTH) / (this.WIDTH * 2);
+    const iY = (this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2);
+    const new_values = getFloorVertices(perlin3d, Vec2.make(iX, iY));
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new_values);
+    this.shape.pos.x = this.cChunk.x;
+    this.shape.pos.z = this.cChunk.y;
+  }
+  update(gl, perlin3d, pos) {
+    const xIndxChunk = Math.floor((Math.abs(pos.x) + this.WIDTH) / (this.WIDTH * 2));
+    const yIndxChunk = Math.floor((Math.abs(pos.z) + this.HEIGHT) / (this.HEIGHT * 2));
+    const xChunk = xIndxChunk * this.WIDTH * 2 * Math.sign(pos.x);
+    const yChunk = yIndxChunk * this.HEIGHT * 2 * Math.sign(pos.z);
+    const chunk = Vec2.make(xChunk, yChunk);
+    if (!this.cChunk.equal(chunk)) {
+      this.cChunk = chunk;
+      this.updateChunk(gl, perlin3d);
+    }
+    this.shader.bind(gl);
+    gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), 0, 0);
+  }
+  draw(gl) {
+    this.shape.draw(gl);
+  }
+};
+
 // src/Game.ts
 var Game = class {
   cubeVertices;
   tableVertices;
   cubeIndices;
   tableIndices;
-  cubeVao;
-  tableVao;
-  floorVao;
+  floorBuffer;
+  chunk_pos;
+  vaos;
+  shaders;
+  perlinFloor;
   total_time;
   shapes;
   width;
   height;
-  shaderProgram;
-  lightShaderProgram;
   moveVector;
   mouseMoveVector;
   lastMousePos;
@@ -1296,56 +1380,47 @@ var Game = class {
     this.mouseMoveVector = Vec2.make(0, 0);
     this.lastMousePos = Vec2.make(0, 0);
     this.perlin3d = new Perlin3d(64, 64);
+    this.vaos = {};
+    this.shaders = {};
+    this.chunk_pos = Vec2.make(0, 0);
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 200);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
-    const floorVerticesData = getFloorVertices(this.perlin3d);
-    const floorIndicesData = getFloorIndices(this.perlin3d.grid_width, this.perlin3d.grid_height);
-    const cubeVertices = createStaticBufferData(gl, CUBE_VERTICES);
-    const tableVertices = createStaticBufferData(gl, TABLE_VERTICES);
-    const floorVertices = createStaticBufferData(gl, floorVerticesData);
+    const cubeVertices = createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW);
+    const tableVertices = createBufferData(gl, TABLE_VERTICES, gl.STATIC_DRAW);
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
     const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
-    const floorIndices = createStaticIndexBuffer(gl, floorIndicesData);
     if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices) {
       showError(`Failed to create some buffers`);
     }
-    this.shaderProgram = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
-    this.lightShaderProgram = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
-    this.shaderProgram.bind(gl);
+    this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
+    this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
+    this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
+    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"]);
+    this.shaders["main"].bind(gl);
     console.log("error: ", gl.getError());
-    const vPosLoc = this.shaderProgram.getAttrib(gl, "vPos");
-    const vColorLoc = this.shaderProgram.getAttrib(gl, "vColor");
-    const vNormalLoc = this.shaderProgram.getAttrib(gl, "vNormal");
-    const vUVLoc = this.shaderProgram.getAttrib(gl, "vUV");
+    const vPosLoc = this.shaders["main"].getAttrib(gl, "vPos");
+    const vColorLoc = this.shaders["main"].getAttrib(gl, "vColor");
+    const vNormalLoc = this.shaders["main"].getAttrib(gl, "vNormal");
+    const vUVLoc = this.shaders["main"].getAttrib(gl, "vUV");
     if (vPosLoc < 0 || vColorLoc < 0) {
       if (vPosLoc < 0) showError("vPos wasnt found");
       if (vColorLoc < 0) showError("vColor wasnt found");
       return;
     }
-    const noise_width = 256 * 2;
-    this.noiseTexture = makeHeightTextureFromData(gl, makeRandomMatrix(noise_width, noise_width), noise_width, noise_width);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
-    gl.uniform1i(this.shaderProgram.getUniform(gl, "u_noiseTex"), 0);
-    this.cubeVao = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.tableVao = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.floorVao = create3dPosColorInterleavedVao(gl, floorVertices, floorIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    if (!this.cubeVao || !this.tableVao) showError("Vao were not created");
-    console.log("error: ", gl.getError());
+    this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["table"] = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     gl.viewport(0, 0, this.width, this.height);
     const UP_VEC2 = Vec3.make(0, 1, 0);
     this.shapes = [];
-    const size = 5;
-    this.shapes.push(new Shape(Vec3.make(0, 0, 0), Vec3.make(size, 1, size), UP_VEC2, 0, this.shaderProgram, this.floorVao, floorIndicesData.length));
     this.light = new Light(
       Vec3.make(4, 4, 2),
       Vec3.make(0.2, 0.2, 0.2),
       UP_VEC2,
       0,
-      this.lightShaderProgram,
-      this.cubeVao,
+      this.shaders["light"],
+      this.vaos["cube"],
       CUBE_INDICES.length,
       Vec3.make(1, 1, 1)
     );
@@ -1383,28 +1458,35 @@ var Game = class {
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1;
   }
-  update(dt) {
+  update(gl, dt) {
     this.total_time += dt;
     this.pCamera.update(this.moveVector, this.mouseMoveVector, dt);
     this.mouseMoveVector = Vec2.make(0, 0);
+    this.perlinFloor.update(gl, this.perlin3d, this.pCamera.pos);
+  }
+  setShaderUniform(gl, shader, matViewProj) {
+    shader.bind(gl);
+    gl.uniformMatrix4fv(shader.getUniform(gl, "matViewProj"), false, matViewProj.values);
+    gl.uniform3f(shader.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    gl.uniform3f(shader.getUniform(gl, "lightPos"), this.light.pos.x, this.light.pos.y, this.light.pos.z);
+    gl.uniform3f(shader.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
+    shader.unbind(gl);
   }
   draw(gl) {
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
-    this.shaderProgram.bind(gl);
-    gl.uniformMatrix4fv(this.shaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
-    gl.uniform3f(this.shaderProgram.getUniform(gl, "lightPos"), this.light.pos.x, this.light.pos.y, this.light.pos.z);
-    gl.uniform3f(this.shaderProgram.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
-    this.lightShaderProgram.bind(gl);
-    gl.uniformMatrix4fv(this.lightShaderProgram.getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.lightShaderProgram.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    this.setShaderUniform(gl, this.shaders["main"], matViewProj);
+    this.setShaderUniform(gl, this.shaders["floor"], matViewProj);
+    this.shaders["light"].bind(gl);
+    gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl, "matViewProj"), false, matViewProj.values);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
     this.light.draw(gl);
+    this.perlinFloor.draw(gl);
   }
 };
 
@@ -1437,8 +1519,8 @@ function initGame(data) {
     const now = performance.now();
     dt = (now - lastTime) / 5;
     lastTime = now;
-    game.update(dt);
     if (!gl) return;
+    game.update(gl, dt);
     game.draw(gl);
     requestAnimationFrame(step);
   }
@@ -1451,7 +1533,9 @@ try {
       "fMain",
       "fLight",
       "vLight",
-      "vMain"
+      "vMain",
+      "vFloor",
+      "fFloor"
     ];
     let object = {};
     for (let i = 0; i < shader_names.length; i++)

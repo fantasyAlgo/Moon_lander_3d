@@ -1,6 +1,6 @@
-import { CoupledVertex, webglVerticesFromCoupledVertices } from "./CoupledVertex";
+import { CoupledFloorVertex, webglVerticesFromCoupledFloorVertices} from "./CoupledVertex";
 import { Mat4x4 } from "./glMath/mat4x4";
-import { Vec2 } from "./glMath/Vec2";
+import { Vec2 } from "./glMath/vec2";
 import { Vec3 } from "./glMath/vec3";
 import { Perlin3d } from "./Perlin3d";
 
@@ -83,19 +83,16 @@ export const TABLE_INDICES = new Uint16Array([
 ]);
 
 
-export function getFloorVertices(perlin3d : Perlin3d) : Float32Array {
-  let lst : CoupledVertex[] = [];
+export function getFloorVertices(perlin3d : Perlin3d, chunk : Vec2) : Float32Array {
+  let lst : CoupledFloorVertex[] = [];
   const W : number = perlin3d.grid_width;
   const H : number = perlin3d.grid_height;
-  const fake_normal = Vec3.make(0, 1, 0);
   for (let i = H; i >= 0; i--) {
     for (let j = 0.0; j <= W; j++) {
-      const height = perlin3d.get(i/20.0, j/20.0);
-      const rValue = Math.random()/50.0;
-      const color : Vec3 = Vec3.add(Vec3.make(0.2+height*0.1, 0.2+height*0.1, 0.2+height*0.1), Vec3.make(rValue, rValue, rValue));
+      const height = perlin3d.get((i+chunk.x*H)/20.0, (j + chunk.y*W)/20.0);
+      const rValue = Math.random()/40.0;
       const pos : Vec3 = Vec3.make(2.0*j/H - 1.0, height, 2.0*i/W - 1.0);
-      const uv : Vec2 = Vec2.make(1.0+pos.x/2.0, 1.0+pos.z/2.0);
-      const vertex : CoupledVertex = new CoupledVertex(pos, color, fake_normal, uv);
+      const vertex : CoupledFloorVertex = new CoupledFloorVertex(pos, Vec3.make(0, rValue, 0));
       lst.push(vertex);
     }
   }
@@ -105,12 +102,13 @@ export function getFloorVertices(perlin3d : Perlin3d) : Float32Array {
       const down=    lst[(i-1)*H+j].pos.y;
       const left=    lst[i*H+j-1].pos.y;
       const right=   lst[i*H+j+1].pos.y;
-      lst[i*H+j].normal = Vec3.normalize(Vec3.make(up - down, 2.0, left - right));
+      lst[i*H+j].normal.x = up - down;
+      lst[i*H+j].normal.z = left - right;
     }
   }
   console.log(lst.length)
 
-  return webglVerticesFromCoupledVertices(lst);
+  return webglVerticesFromCoupledFloorVertices(lst);
 
 }
 export function getFloorIndices(grid_width : number, grid_height : number) : Uint16Array {
@@ -119,15 +117,16 @@ export function getFloorIndices(grid_width : number, grid_height : number) : Uin
   const H : number = grid_height;
   for (let i = H; i >= 0; i--) {
     for (let j = 0; j < W; j++) {
-      if (i != j){
-        indices.push(i*H + j)
-        indices.push((i+1)*H + j)
-        indices.push((i+1)*H + j+1)
-      }
       if (i-1 != j){
         indices.push(i*H + j);
         indices.push((i+1)*H + j+1);
         indices.push(i*H + j+1);
+      }
+
+      if (i != j){
+        indices.push(i*H + j)
+        indices.push((i+1)*H + j)
+        indices.push((i+1)*H + j+1)
       }
     }
   }

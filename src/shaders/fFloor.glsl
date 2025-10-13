@@ -9,10 +9,13 @@ in vec2 vOutUV;
 uniform vec3 lightColor;
 uniform vec3 lightPos;
 uniform vec3 cameraPos;
+uniform sampler2D u_noiseTex;
 
 out vec4 outputColor;
 void main(){
   float ambient = 0.09f;
+
+  float noise_height = texture(u_noiseTex, vOutUV*1.5f).r;
 
   vec3 normal = normalize(vOutNormal);
   vec3 lightDir = normalize(lightPos - vOutPos);
@@ -24,7 +27,7 @@ void main(){
   float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16.0f);
   float specular = specAmount*specularLight;
 
-  vec3 light = lightColor*(diffuse + ambient + specular) ;
+  vec3 light = lightColor*(diffuse + ambient + specular + noise_height*0.05f) ;
   outputColor = vec4(vOutColor, 1.0f) * vec4(light, 1.0);
   //outputColor = vec4(vOutNormal, 1.0)*vec4(lightColor, 1.0) +  0.01f*diffuse + 0.0001f*vOutColor.x;
 }

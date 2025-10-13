@@ -14,6 +14,11 @@ export class Vec2 {
     this.y = this.y < yMin ? yMin : (this.y > yMax ? yMax : this.y);
   }
 
+  equal(v : Vec2) : boolean {
+    const EPS : number = 0.001;
+    return Math.abs(v.x-this.x) < EPS && Math.abs(v.y - this.y) < EPS;
+  }
+
   static normalize(v : Vec2) : Vec2{
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");
     return new Vec2(v.x/v.distance, v.y/v.distance);
