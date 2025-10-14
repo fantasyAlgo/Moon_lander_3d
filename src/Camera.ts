@@ -1,5 +1,5 @@
 import { Mat4x4 } from "./glMath/mat4x4";
-import { Vec2 } from "./glMath/Vec2";
+import { Vec2 } from "./glMath/vec2";
 import { Vec3 } from "./glMath/vec3";
 import { Vec4 } from "./glMath/vec4";
 

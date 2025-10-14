@@ -11,7 +11,7 @@ export class Shape {
     private rotationAxis: Vec3,
     private rotationAngle: number,
     public readonly program : ShaderProgram,
-    public readonly vao: WebGLVertexArrayObject,
+    public vao: WebGLVertexArrayObject,
     public readonly numIndices: number){};
 
   draw(gl : WebGL2RenderingContext){

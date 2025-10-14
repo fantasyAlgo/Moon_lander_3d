@@ -43,14 +43,16 @@ export class Octave {
     this.grid_height = grid_height;
     this.grid_width = grid_width;
     this.grid = [];
-    for (let i = 0; i < grid_width; i++) {
+    for (let i = 0; i < grid_width+2; i++) {
       let lst : Vec2[] = [];
-      for (let j = 0; j < grid_height; j++) {
+      for (let j = 0; j < grid_height+2; j++) {
         lst.push( Vec2.normalize(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random())) );
       }
       this.grid.push(lst);
     }
   }
+
+
   get(x : number = 0, y : number = 0){
     if (x < 0) x*=-1;
     if (y < 0) y*=-1;

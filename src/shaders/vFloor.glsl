@@ -16,14 +16,15 @@ out vec3 vOutPos;
 out vec2 vOutUV;
 void main(){
   vec2 vUV = 1.0f+vec2(vPos.x, vPos.z)*0.5f;
-  vec4 model_pos = matWorld * vec4(vPos + vec3(chunkPos.x, 0.0f, chunkPos.y), 1.0);
+  vec4 model_pos = matWorld * vec4(vPos, 1.0);
+  model_pos += vec4(chunkPos.x, 0.0, chunkPos.y, 0.0);
 
   float noise_height = texture(u_noiseTex, vUV).r;
   model_pos.y += noise_height*0.05f;
 
   gl_Position = matViewProj*model_pos;
   
-  vOutColor = vec3(0.2+vPos.y*0.1, 0.2+vPos.y*0.1, 0.2+vPos.y*0.1) + vNormal.y;
+  vOutColor = vec3(0.15+vPos.y*0.2) + vNormal.y;
   vOutNormal = vec3(vNormal.x, 1.0, vNormal.y);
   vOutPos = model_pos.xyz;
   vOutUV = vUV;

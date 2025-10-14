@@ -43,6 +43,7 @@ export class Game {
   moveVector : Vec3;
   mouseMoveVector : Vec2;
   lastMousePos : Vec2;
+  isShiftPressed : boolean;
 
   light : Light;
 
@@ -117,6 +118,9 @@ export class Game {
   }
 
   handleKeyDown(e : KeyboardEvent){
+    if (e.key == "n")
+      this.isShiftPressed = true;
+
     if (e.key == "w")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
     if (e.key == "a")
@@ -133,6 +137,8 @@ export class Game {
   }
 
   handleKeyUp(e : KeyboardEvent){
+    if (e.key == "n")
+      this.isShiftPressed = false;
     if (e.key == "w")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, -1));
     if (e.key == "a")
@@ -154,8 +160,9 @@ export class Game {
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
+
     this.total_time += dt;
-    this.pCamera.update(this.moveVector, this.mouseMoveVector, dt);
+    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, dt);
     this.mouseMoveVector = Vec2.make(0,0);
 
     this.perlinFloor.update(gl, this.perlin3d, this.pCamera.pos);
