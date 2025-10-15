@@ -199,7 +199,9 @@ export class Game {
     });
     this.light.draw(gl);
     this.perlinFloor.draw(gl);
-
+    
+    gl.finish();
+    this.perlinFloor.updateSwaps(gl);
   }
 
 }

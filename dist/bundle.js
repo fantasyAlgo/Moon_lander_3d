@@ -1298,6 +1298,13 @@ var QueueChanges = class {
     this.chunkI = chunkI;
   }
 };
+var PendingUpdateSwap = class {
+  constructor(from, to, values) {
+    this.from = from;
+    this.to = to;
+    this.values = values;
+  }
+};
 var PerlinFloor = class {
   shapes = [];
   verticesVBO = [];
@@ -1308,6 +1315,7 @@ var PerlinFloor = class {
   HEIGHT = 20;
   cChunk;
   queueChanges = [];
+  pendingUpdateSwaps = [];
   testData = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   constructor(gl, perlin3d, shader) {
     const nChunks = 3;
@@ -1372,22 +1380,33 @@ var PerlinFloor = class {
     [this.shapes[to].vao, this.shapes[from].vao] = [this.shapes[from].vao, this.shapes[to].vao];
     [this.testData[to], this.testData[from]] = [this.testData[from], this.testData[to]];
   }
+  updateSwaps(gl) {
+    if (this.queueChanges.length > 0) return;
+    for (const { from, to, values } of this.pendingUpdateSwaps) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO[from]);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
+      gl.bindVertexArray(null);
+      const mid = Math.floor((from + to) / 2);
+      this.swap(from, to);
+      this.swap(from, mid);
+    }
+    this.pendingUpdateSwaps = [];
+    gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
+  }
   update(gl, perlin3d, pos) {
     if (this.queueChanges.length > 0) {
       const el = this.queueChanges.shift();
       if (el == void 0) return;
+      gl.finish();
       const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2));
-      console.log("iX, iY: ", iX, iY);
       const chunkPos = Vec2.make(iX + Math.floor(el.to / 3) - 1, iY + el.to % 3 - 1);
       const new_values = getFloorVertices(perlin3d, chunkPos);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO[el.from]);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, new_values);
-      const mid = Math.floor((el.from + el.to) / 2);
-      this.swap(el.from, el.to);
-      this.swap(el.from, mid);
-      console.log("########################");
-      console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
+      this.pendingUpdateSwaps.push(new PendingUpdateSwap(el.from, el.to, new_values));
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) {
+        console.error("WebGL Error:", error);
+      }
     }
     const xIndxChunk = Math.floor((Math.abs(pos.x) + this.WIDTH) / (this.WIDTH * 2));
     const yIndxChunk = Math.floor((Math.abs(pos.z) + this.HEIGHT) / (this.HEIGHT * 2));
@@ -1398,7 +1417,6 @@ var PerlinFloor = class {
       this.updateChunk(gl, perlin3d, chunk);
     }
     this.shader.bind(gl);
-    gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
   }
   draw(gl) {
     this.shapes.forEach((element) => {
@@ -1550,6 +1568,8 @@ var Game = class {
     });
     this.light.draw(gl);
     this.perlinFloor.draw(gl);
+    gl.finish();
+    this.perlinFloor.updateSwaps(gl);
   }
 };
 
@@ -1578,13 +1598,14 @@ function initGame(data) {
   game = new Game(gl, canvas.width, canvas.height, data);
   let lastTime = performance.now();
   let dt;
+  game.update(gl, 0.1);
   function step() {
     const now = performance.now();
     dt = (now - lastTime) / 5;
     lastTime = now;
     if (!gl) return;
-    game.update(gl, dt);
     game.draw(gl);
+    game.update(gl, dt);
     requestAnimationFrame(step);
   }
   step();
