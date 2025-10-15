@@ -218,6 +218,32 @@ function webglVerticesFromCoupledFloorVertices(vertices) {
   }
   return new Float32Array(lst);
 }
+var CoupledVertex = class {
+  constructor(pos, color, normal, uv) {
+    this.pos = pos;
+    this.color = color;
+    this.normal = normal;
+    this.uv = uv;
+  }
+};
+function webglVerticesFromCoupledVertices(vertices) {
+  const lst = [];
+  const size = vertices.length;
+  for (let i = 0; i < size; i++) {
+    lst.push(vertices[i].pos.x);
+    lst.push(vertices[i].pos.y);
+    lst.push(vertices[i].pos.z);
+    lst.push(vertices[i].color.x);
+    lst.push(vertices[i].color.y);
+    lst.push(vertices[i].color.z);
+    lst.push(vertices[i].normal.x);
+    lst.push(vertices[i].normal.y);
+    lst.push(vertices[i].normal.z);
+    lst.push(vertices[i].uv.x);
+    lst.push(vertices[i].uv.y);
+  }
+  return new Float32Array(lst);
+}
 
 // src/glMath/vec4.ts
 var Vec4 = class _Vec4 {
@@ -1133,14 +1159,16 @@ var Camera = class {
     this.pos = initial_pos;
     this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
   }
-  update(moveVec, mouseMoveVec, dt) {
-    const SENSIBILITY = 0.3;
+  update(moveVec, mouseMoveVec, player_pos, camera_dist, dt) {
+    const SENSIBILITY = 0.25;
+    this.forward = Vec3.normalize(Vec3.sub(player_pos, this.pos));
     const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
     const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1));
     const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
-    this.pos = Vec3.add(this.pos, Vec3.multScalar(newMoveVec.convertToVec3(), dt * 0.01));
     this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY * dt * 0.01));
+    this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
     this.lookAtMatrix = this.getLookAt();
+    console.log("model: ", moveMatrix);
   }
   getLookAt() {
     return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);
@@ -1425,6 +1453,14 @@ var PerlinFloor = class {
   }
 };
 
+// src/Player.ts
+var Player = class extends Shape {
+  constructor(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices, camera_dist) {
+    super(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices);
+    this.camera_dist = camera_dist;
+  }
+};
+
 // src/Game.ts
 var Game = class {
   cubeVertices;
@@ -1449,7 +1485,8 @@ var Game = class {
   pCamera;
   perlin3d;
   noiseTexture;
-  constructor(gl, width, height, shaders) {
+  player;
+  constructor(gl, width, height, shaders, models) {
     this.width = width;
     this.height = height;
     this.total_time = 0;
@@ -1466,8 +1503,10 @@ var Game = class {
     gl.enable(gl.DEPTH_TEST);
     const cubeVertices = createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW);
     const tableVertices = createBufferData(gl, TABLE_VERTICES, gl.STATIC_DRAW);
+    const landerVertices = createBufferData(gl, models["lander"].vertices, gl.STATIC_DRAW);
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
     const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
+    const landerIndices = createStaticIndexBuffer(gl, models["lander"].indices);
     if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices) {
       showError(`Failed to create some buffers`);
     }
@@ -1488,9 +1527,20 @@ var Game = class {
     }
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["table"] = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["lander"] = create3dPosColorInterleavedVao(gl, landerVertices, landerIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     gl.viewport(0, 0, this.width, this.height);
     const UP_VEC2 = Vec3.make(0, 1, 0);
     this.shapes = [];
+    this.player = new Player(
+      Vec3.make(50, 4, 40),
+      Vec3.make(0.4, 0.4, 0.4),
+      UP_VEC2,
+      0,
+      this.shaders["main"],
+      this.vaos["lander"],
+      models["lander"].indices.length,
+      4
+    );
     this.light = new Light(
       Vec3.make(4, 20, 2),
       Vec3.make(0.2, 0.2, 0.2),
@@ -1541,7 +1591,7 @@ var Game = class {
   }
   update(gl, dt) {
     this.total_time += dt;
-    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, dt);
+    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.mouseMoveVector = Vec2.make(0, 0);
     this.perlinFloor.update(gl, this.perlin3d, this.pCamera.pos);
   }
@@ -1568,10 +1618,84 @@ var Game = class {
     });
     this.light.draw(gl);
     this.perlinFloor.draw(gl);
+    this.player.draw(gl);
     gl.finish();
     this.perlinFloor.updateSwaps(gl);
+    this.shaders["light"].unbind(gl);
   }
 };
+
+// src/objLoader.ts
+var ModelData = class {
+  constructor(vertices, indices) {
+    this.vertices = vertices;
+    this.indices = indices;
+  }
+};
+async function loadObj(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to load ${url}`);
+  let text = await response.text();
+  let lines = text.split(/\r?\n/);
+  let vertices = [];
+  let normals = [];
+  let uvs = [];
+  let lst = [];
+  let objIndices = Object;
+  let indices = [];
+  const WHITE_COLOR = Vec3.make(0.5, 0.5, 0.5);
+  for (let line of lines) {
+    const words = line.split(" ");
+    if (words[0] == "v") {
+      vertices.push(Vec3.make(
+        Number(words[1]),
+        Number(words[2]),
+        Number(words[3])
+      ));
+    }
+    if (words[0] == "vn") {
+      normals.push(Vec3.make(
+        Number(words[1]),
+        Number(words[2]),
+        Number(words[3])
+      ));
+    }
+    if (words[0] == "vt") {
+      uvs.push(Vec2.make(
+        Number(words[1]),
+        Number(words[2])
+      ));
+    }
+    if (words[0] == "f") {
+      let indxs = words[1].split("/");
+      if (words[1] in objIndices) {
+        indices.push(objIndices[words[1]]);
+      } else {
+        lst.push(new CoupledVertex(vertices[Number(indxs[0]) - 1], WHITE_COLOR, normals[Number(indxs[2]) - 1], uvs[Number(indxs[1]) - 1]));
+        objIndices[words[1]] = lst.length - 1;
+        indices.push(lst.length - 1);
+      }
+      if (words[2] in objIndices) {
+        indices.push(objIndices[words[2]]);
+      } else {
+        indxs = words[2].split("/");
+        lst.push(new CoupledVertex(vertices[Number(indxs[0]) - 1], WHITE_COLOR, normals[Number(indxs[2]) - 1], uvs[Number(indxs[1]) - 1]));
+        objIndices[words[2]] = lst.length - 1;
+        indices.push(lst.length - 1);
+      }
+      if (words[3] in objIndices) {
+        indices.push(objIndices[words[3]]);
+      } else {
+        indxs = words[3].split("/");
+        lst.push(new CoupledVertex(vertices[Number(indxs[0]) - 1], WHITE_COLOR, normals[Number(indxs[2]) - 1], uvs[Number(indxs[1]) - 1]));
+        objIndices[words[3]] = lst.length - 1;
+        indices.push(lst.length - 1);
+      }
+    }
+  }
+  console.log(vertices.length, normals.length, uvs.length, indices.length);
+  return new ModelData(new Float32Array(webglVerticesFromCoupledVertices(lst)), new Uint16Array(indices));
+}
 
 // src/main.ts
 async function loadText(url) {
@@ -1581,7 +1705,8 @@ async function loadText(url) {
 }
 var game;
 var canvas;
-function initGame(data) {
+function initGame(shaders, models) {
+  console.log(models["lander"]);
   canvas = document.getElementById("demo-canvas");
   if (!canvas) {
     showError("Canvas nope");
@@ -1594,8 +1719,7 @@ function initGame(data) {
   }
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  console.log(data["fMain"]);
-  game = new Game(gl, canvas.width, canvas.height, data);
+  game = new Game(gl, canvas.width, canvas.height, shaders, models);
   let lastTime = performance.now();
   let dt;
   game.update(gl, 0.1);
@@ -1610,21 +1734,36 @@ function initGame(data) {
   }
   step();
 }
+async function getShaders() {
+  const shader_source = "src/shaders";
+  const shader_names = [
+    "fMain",
+    "fLight",
+    "vLight",
+    "vMain",
+    "vFloor",
+    "fFloor"
+  ];
+  let object = {};
+  for (let i = 0; i < shader_names.length; i++)
+    object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));
+  return object;
+}
+async function getModels() {
+  const model_source = "../models";
+  const models_names = [
+    "lander"
+  ];
+  let object = {};
+  for (let i = 0; i < models_names.length; i++)
+    object[models_names[i]] = await loadObj(model_source.concat("/", models_names[i], ".obj"));
+  return object;
+}
 try {
   (async () => {
-    const shader_source = "src/shaders";
-    const shader_names = [
-      "fMain",
-      "fLight",
-      "vLight",
-      "vMain",
-      "vFloor",
-      "fFloor"
-    ];
-    let object = {};
-    for (let i = 0; i < shader_names.length; i++)
-      object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));
-    initGame(object);
+    let shaders = await getShaders();
+    let models = await getModels();
+    initGame(shaders, models);
   })();
 } catch (e) {
   console.log(e);

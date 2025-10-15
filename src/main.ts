@@ -3,6 +3,7 @@ import { showError } from "./glHelpers.ts";
 import { vShaderCode } from "./vertexShader.ts";
 import { fShaderCode } from "./fragmentShader.ts";
 import { Mat4x4 } from "./glMath/mat4x4.ts";
+import { loadObj } from "./objLoader.ts";
 
 async function loadText(url: string): Promise<string> {
   const response = await fetch(url);
@@ -13,7 +14,8 @@ async function loadText(url: string): Promise<string> {
 let game : Game;
 let canvas : HTMLCanvasElement;
 
-function initGame(data){
+function initGame(shaders : Object, models : Object){
+  console.log(models["lander"]);
   canvas = document.getElementById("demo-canvas") as HTMLCanvasElement;
   if (!canvas){
     showError("Canvas nope");
@@ -27,9 +29,8 @@ function initGame(data){
   }
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  console.log(data["fMain"]);
 
-  game = new Game(gl, canvas.width, canvas.height, data);
+  game = new Game(gl, canvas.width, canvas.height, shaders, models);
   let lastTime = performance.now();
   let dt : number;
 
@@ -48,18 +49,36 @@ function initGame(data){
   step();
 }
 
+async function getShaders(){
+    const shader_source = "src/shaders";
+
+    const shader_names = [
+      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor",
+    ]; 
+
+    let object = {};
+    for (let i = 0; i < shader_names.length; i++)
+      object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));
+    return object;
+}
+async function getModels(){
+  const model_source = "../models";
+  const models_names = [
+    "lander"
+  ];
+  let object = {};
+  for (let i = 0; i < models_names.length; i++)
+    object[models_names[i]] = await loadObj(model_source.concat("/", models_names[i], ".obj"));
+  return object;
+
+}
 
 
 try {
   (async () => {
-    const shader_source = "src/shaders";
-    const shader_names = [
-      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor",
-    ]; // My automatic shader loader!
-    let object = {};
-    for (let i = 0; i < shader_names.length; i++)
-      object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));
-    initGame(object);
+    let shaders = await getShaders();
+    let models = await getModels();
+    initGame(shaders, models);
   })();
 } catch (e) {
   console.log(e);

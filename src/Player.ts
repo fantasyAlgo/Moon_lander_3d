@@ -11,7 +11,9 @@ export class Player extends Shape {
     rotationAngle: number,
     program : ShaderProgram,
     vao: WebGLVertexArrayObject,
-    numIndices: number){
+    numIndices: number,
+    public camera_dist : number,
+  ){
       super(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices);
     };
 

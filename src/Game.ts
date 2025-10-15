@@ -12,6 +12,7 @@ import { Camera } from "./Camera.ts";
 import { Light } from "./Light.ts";
 import { Perlin3d } from "./Perlin3d.ts";
 import { PerlinFloor } from "./PerlinFloor.ts";
+import { Player } from "./Player.ts";
 
 
 
@@ -53,7 +54,9 @@ export class Game {
   perlin3d : Perlin3d;
   noiseTexture : WebGLTexture;
 
-  constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object){
+  player : Player;
+
+  constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object){
     this.width = width;
     this.height = height;
     this.total_time = 0.0
@@ -64,7 +67,6 @@ export class Game {
     this.vaos = {};
     this.shaders = {};
     this.chunk_pos = Vec2.make(0.0, 0.0);
-    //console.log("perlin: ", this.perlin3d.get(0.2, 0.2));
 
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1.0, 0.01, 100);
     
@@ -74,9 +76,11 @@ export class Game {
 
     const cubeVertices =  createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW); 
     const tableVertices = createBufferData(gl, TABLE_VERTICES, gl.STATIC_DRAW);
+    const landerVertices = createBufferData(gl, models["lander"].vertices, gl.STATIC_DRAW);
 
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
     const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
+    const landerIndices = createStaticIndexBuffer(gl, models["lander"].indices);
 
 
     if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices){
@@ -104,6 +108,7 @@ export class Game {
 
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["table"] = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["lander"] = create3dPosColorInterleavedVao(gl, landerVertices, landerIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
 
     gl.viewport(0, 0, this.width, this.height);
 
@@ -111,7 +116,10 @@ export class Game {
     this.shapes = [];
     //this.shapes.push(new Shape(Vec3.make(0, 1.0, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.shaders["main"], this.cubeVao, CUBE_INDICES.length));
     //this.shapes.push(new Shape(Vec3.make(2, 1.0, -1), Vec3.make(1.0, 1.0, 1.0), UP_VEC, 0, this.shaders["main"], this.cubeVao, CUBE_INDICES.length));
-    
+    this.player = new Player(
+      Vec3.make(50, 4.0, 40), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 4.0
+    );
+
     this.light = new Light(
       Vec3.make(4, 20.0, 2), Vec3.make(0.2, 0.2, 0.2), UP_VEC, 0, this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5)
     );
@@ -162,7 +170,7 @@ export class Game {
   update(gl : WebGL2RenderingContext, dt : number) {
 
     this.total_time += dt;
-    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, dt);
+    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.mouseMoveVector = Vec2.make(0,0);
 
     this.perlinFloor.update(gl, this.perlin3d, this.pCamera.pos);
@@ -197,11 +205,15 @@ export class Game {
     this.shapes.forEach(element => {
       element.draw(gl);
     });
+
     this.light.draw(gl);
     this.perlinFloor.draw(gl);
+    this.player.draw(gl);
     
     gl.finish();
     this.perlinFloor.updateSwaps(gl);
+
+    this.shaders["light"].unbind(gl);
   }
 
 }

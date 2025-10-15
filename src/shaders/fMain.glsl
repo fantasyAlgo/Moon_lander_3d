@@ -18,7 +18,7 @@ void main(){
   vec3 lightDir = normalize(lightPos - vOutPos);
   float diffuse = max(dot(lightDir, normal), 0.0);
 
-  float specularLight = 0.9f;
+  float specularLight = 0.2f;
   vec3 viewDirection = normalize(cameraPos - vOutPos);
   vec3 reflectionDirection = reflect(-lightDir, normal );
   float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16.0f);
