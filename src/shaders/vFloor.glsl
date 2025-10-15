@@ -24,7 +24,7 @@ void main(){
 
   gl_Position = matViewProj*model_pos;
   
-  vOutColor = vec3(0.15+vPos.y*0.2) + vNormal.y;
+  vOutColor = vec3(0.2+vPos.y*0.05) + vNormal.y;
   vOutNormal = vec3(vNormal.x, 1.0, vNormal.y);
   vOutPos = model_pos.xyz;
   vOutUV = vUV;

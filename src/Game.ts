@@ -66,7 +66,7 @@ export class Game {
     this.chunk_pos = Vec2.make(0.0, 0.0);
     //console.log("perlin: ", this.perlin3d.get(0.2, 0.2));
 
-    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1.0, 0.01, 200);
+    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1.0, 0.01, 100);
     
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -113,7 +113,7 @@ export class Game {
     //this.shapes.push(new Shape(Vec3.make(2, 1.0, -1), Vec3.make(1.0, 1.0, 1.0), UP_VEC, 0, this.shaders["main"], this.cubeVao, CUBE_INDICES.length));
     
     this.light = new Light(
-      Vec3.make(4, 4.0, 2), Vec3.make(0.2, 0.2, 0.2), UP_VEC, 0, this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, Vec3.make(1,1,1)
+      Vec3.make(4, 20.0, 2), Vec3.make(0.2, 0.2, 0.2), UP_VEC, 0, this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5)
     );
   }
 

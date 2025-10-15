@@ -747,7 +747,7 @@ function getFloorVertices(perlin3d, chunk) {
   const H = perlin3d.grid_height;
   for (let i = H; i >= 0; i--) {
     for (let j = 0; j <= W; j++) {
-      const height = 2 * perlin3d.get((i + chunk.y * H) / 20, (j + chunk.x * W) / 20);
+      const height = 10 * perlin3d.get((i + chunk.y * H) / 50, (j + chunk.x * W) / 50);
       const rValue = Math.random() / 40;
       const pos = Vec3.make(2 * j / H - 1, height, 2 * i / W - 1);
       const vertex = new CoupledFloorVertex(pos, Vec3.make(0, rValue, 0));
@@ -1304,8 +1304,8 @@ var PerlinFloor = class {
   floorVAOs = [];
   shader;
   noiseTexture;
-  WIDTH = 10;
-  HEIGHT = 10;
+  WIDTH = 20;
+  HEIGHT = 20;
   cChunk;
   queueChanges = [];
   testData = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -1442,7 +1442,7 @@ var Game = class {
     this.vaos = {};
     this.shaders = {};
     this.chunk_pos = Vec2.make(0, 0);
-    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 200);
+    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 100);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -1474,14 +1474,14 @@ var Game = class {
     const UP_VEC2 = Vec3.make(0, 1, 0);
     this.shapes = [];
     this.light = new Light(
-      Vec3.make(4, 4, 2),
+      Vec3.make(4, 20, 2),
       Vec3.make(0.2, 0.2, 0.2),
       UP_VEC2,
       0,
       this.shaders["light"],
       this.vaos["cube"],
       CUBE_INDICES.length,
-      Vec3.make(1, 1, 1)
+      Vec3.make(5, 5, 5)
     );
   }
   handleKeyDown(e) {
@@ -1567,7 +1567,7 @@ function initGame(data) {
     showError("Canvas nope");
     return;
   }
-  const gl = canvas.getContext("webgl2");
+  const gl = canvas.getContext("webgl2", { antialias: true });
   if (!gl) {
     showError("webgl2 nope");
     return;

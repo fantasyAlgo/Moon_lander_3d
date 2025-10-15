@@ -23,8 +23,8 @@ export class PerlinFloor {
   floorVAOs : WebGLVertexArrayObject[] = [];
   shader : ShaderProgram;
   noiseTexture : WebGLTexture;
-  WIDTH : number =  10;
-  HEIGHT : number = 10;
+  WIDTH : number =  20;
+  HEIGHT : number = 20;
   cChunk : Vec2;
   queueChanges : QueueChanges[] = [];
   testData : number[] = [1,2,3,4,5,6,7,8,9];

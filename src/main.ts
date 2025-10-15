@@ -20,7 +20,7 @@ function initGame(data){
     return;
   }
 
-  const gl = canvas.getContext('webgl2');
+  const gl = canvas.getContext('webgl2', { antialias: true });
   if (!gl){
     showError("webgl2 nope");
     return;
