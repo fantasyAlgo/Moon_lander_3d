@@ -17,10 +17,12 @@ export class Camera {
 
   update(moveVec : Vec3, mouseMoveVec: Vec2, player_pos : Vec3, camera_dist: number, dt : number){
     const SENSIBILITY = 0.25;
+
+    this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
     this.forward = Vec3.normalize(Vec3.sub(player_pos, this.pos)); 
 
     const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0,0,0), this.forward, UP_VEC));
-    const newMoveVec : Vec4 = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1.0));
+    //const newMoveVec : Vec4 = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1.0));
     const newMouseVec : Vec4 = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0.0, 1.0));
     //this.pos = Vec3.add(this.pos, Vec3.multScalar(newMouseVec.convertToVec3(), dt));
 
@@ -28,8 +30,6 @@ export class Camera {
     this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
 
     this.lookAtMatrix = this.getLookAt();
-    console.log("model: ", moveMatrix);
-    //console.log("lookat: ", )
   }
   getLookAt(){
     return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);

@@ -6,13 +6,11 @@ export class Light extends Shape {
   constructor(
     pos: Vec3,
     scale: Vec3,
-    rotationAxis: Vec3,
-    rotationAngle: number,
     program: ShaderProgram,
     vao: WebGLVertexArrayObject,
     numIndices: number,
     public color: Vec3 
   ) {
-    super(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices);
+    super(pos, scale, program, vao, numIndices);
   }
 }

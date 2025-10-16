@@ -1161,14 +1161,13 @@ var Camera = class {
   }
   update(moveVec, mouseMoveVec, player_pos, camera_dist, dt) {
     const SENSIBILITY = 0.25;
+    this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
     this.forward = Vec3.normalize(Vec3.sub(player_pos, this.pos));
     const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
-    const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, moveVec.y, moveVec.z, 1));
     const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
     this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY * dt * 0.01));
     this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
     this.lookAtMatrix = this.getLookAt();
-    console.log("model: ", moveMatrix);
   }
   getLookAt() {
     return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);
@@ -1203,9 +1202,9 @@ var Quat = class _Quat {
   }
   static hamiltonProduct(q1, q2) {
     const r = q1.r * q2.r - q1.vec.x * q2.vec.x - q1.vec.y * q2.vec.y - q1.vec.z * q2.vec.z;
-    const vecX = q1.r * q2.vec.x - q1.vec.x * q2.r - q1.vec.y * q2.vec.z - q1.vec.z * q2.vec.y;
-    const vecY = q1.r * q2.vec.y - q1.vec.x * q2.vec.z - q1.vec.y * q2.r - q1.vec.z * q2.vec.x;
-    const vecZ = q1.r * q2.vec.z - q1.vec.x * q2.vec.y - q1.vec.y * q2.vec.x - q1.vec.z * q2.r;
+    const vecX = q1.r * q2.vec.x + q1.vec.x * q2.r + q1.vec.y * q2.vec.z - q1.vec.z * q2.vec.y;
+    const vecY = q1.r * q2.vec.y - q1.vec.x * q2.vec.z + q1.vec.y * q2.r + q1.vec.z * q2.vec.x;
+    const vecZ = q1.r * q2.vec.z + q1.vec.x * q2.vec.y - q1.vec.y * q2.vec.x + q1.vec.z * q2.r;
     return new _Quat(r, Vec3.make(vecX, vecY, vecZ));
   }
   static makeFromAxis(angle, axis) {
@@ -1218,19 +1217,30 @@ var Quat = class _Quat {
 
 // src/Shape.ts
 var Shape = class {
-  constructor(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices) {
+  constructor(pos, scale, program, vao, numIndices) {
     this.pos = pos;
     this.scale = scale;
-    this.rotationAxis = rotationAxis;
-    this.rotationAngle = rotationAngle;
     this.program = program;
     this.vao = vao;
     this.numIndices = numIndices;
+    this.rot = Quat.makeFromAxis(0, Vec3.make(0, 1, 0));
   }
-  matWorld = Mat4x4.identity();
+  vel = Vec3.make(0, 0, 0);
+  tForce = Vec3.make(0, 0, 0);
+  mass = 1;
+  rot;
+  rotationAxis = Vec3.make(0, 1, 0);
+  rotationAngle = 0;
+  setRotation(quaterions) {
+    if (quaterions.length == 0) return;
+    let q = quaterions[0];
+    for (let i = 1; i < quaterions.length; i++)
+      q = Quat.hamiltonProduct(q, quaterions[i]);
+    this.rot = Quat.normalize(q);
+  }
   draw(gl) {
     const matWorldUniform = this.program.getUniform(gl, "matWorld");
-    let matWorld = Mat4x4.fromQuat(Quat.makeFromAxis(this.rotationAngle, this.rotationAxis));
+    let matWorld = Mat4x4.fromQuat(this.rot);
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(this.scale));
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
     this.program.bind(gl);
@@ -1243,8 +1253,8 @@ var Shape = class {
 
 // src/Light.ts
 var Light = class extends Shape {
-  constructor(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices, color) {
-    super(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices);
+  constructor(pos, scale, program, vao, numIndices, color) {
+    super(pos, scale, program, vao, numIndices);
     this.color = color;
   }
 };
@@ -1345,10 +1355,14 @@ var PerlinFloor = class {
   queueChanges = [];
   pendingUpdateSwaps = [];
   testData = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-  constructor(gl, perlin3d, shader) {
+  constructor(gl, perlin3d, shader, initial_pos) {
     const nChunks = 3;
     this.shader = shader;
-    this.cChunk = Vec2.make(0, 0);
+    const xIndxChunk = Math.floor((Math.abs(initial_pos.x) + this.WIDTH) / (this.WIDTH * 2));
+    const yIndxChunk = Math.floor((Math.abs(initial_pos.z) + this.HEIGHT) / (this.HEIGHT * 2));
+    const xChunk = xIndxChunk * this.WIDTH * 2 * Math.sign(initial_pos.x);
+    const yChunk = yIndxChunk * this.HEIGHT * 2 * Math.sign(initial_pos.z);
+    this.cChunk = Vec2.make(xChunk, yChunk);
     const floorIndicesData = getFloorIndices(perlin3d.grid_width, perlin3d.grid_height);
     const floorIndices = createStaticIndexBuffer(gl, floorIndicesData);
     console.log("error 2: ", gl.getError());
@@ -1360,6 +1374,7 @@ var PerlinFloor = class {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
     gl.uniform1i(shader.getUniform(gl, "u_noiseTex"), 0);
+    gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
     for (let i = 0; i < nChunks * nChunks; i++) {
       const pos = Vec2.make(Math.floor(i / nChunks) - 1, i % nChunks - 1);
       const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
@@ -1367,11 +1382,12 @@ var PerlinFloor = class {
       const floorVerticesData = getFloorVertices(perlin3d, Vec2.add(pos, Vec2.make(iX, iY)));
       this.verticesVBO.push(createBufferData(gl, floorVerticesData, gl.DYNAMIC_DRAW));
       const vao = createFloorVao(gl, this.verticesVBO[this.verticesVBO.length - 1], floorIndices, vPosLoc, vNormalLoc);
-      const UP_VEC2 = Vec3.make(0, 1, 0);
+      const UP_VEC3 = Vec3.make(0, 1, 0);
       this.shapes.push(
-        new Shape(Vec3.make(pos.x * this.WIDTH * 2, 0, pos.y * this.HEIGHT * 2), Vec3.make(this.WIDTH, 1, this.HEIGHT), UP_VEC2, 0, shader, vao, floorIndicesData.length)
+        new Shape(Vec3.make(pos.x * this.WIDTH * 2, 0, pos.y * this.HEIGHT * 2), Vec3.make(this.WIDTH, 1, this.HEIGHT), shader, vao, floorIndicesData.length)
       );
     }
+    this.pendingUpdateSwaps = [];
     console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
     shader.unbind(gl);
   }
@@ -1417,15 +1433,19 @@ var PerlinFloor = class {
       const mid = Math.floor((from + to) / 2);
       this.swap(from, to);
       this.swap(from, mid);
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) {
+        console.error("WebGL Error in swaps:", error);
+      }
     }
     this.pendingUpdateSwaps = [];
+    this.shader.bind(gl);
     gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
   }
   update(gl, perlin3d, pos) {
     if (this.queueChanges.length > 0) {
       const el = this.queueChanges.shift();
       if (el == void 0) return;
-      gl.finish();
       const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2));
       const chunkPos = Vec2.make(iX + Math.floor(el.to / 3) - 1, iY + el.to % 3 - 1);
@@ -1433,7 +1453,7 @@ var PerlinFloor = class {
       this.pendingUpdateSwaps.push(new PendingUpdateSwap(el.from, el.to, new_values));
       const error = gl.getError();
       if (error !== gl.NO_ERROR) {
-        console.error("WebGL Error:", error);
+        console.error("WebGL Error in update:", error);
       }
     }
     const xIndxChunk = Math.floor((Math.abs(pos.x) + this.WIDTH) / (this.WIDTH * 2));
@@ -1454,12 +1474,46 @@ var PerlinFloor = class {
 };
 
 // src/Player.ts
+var UP_VEC2 = Vec3.make(0, 1, 0);
 var Player = class extends Shape {
-  constructor(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices, camera_dist) {
-    super(pos, scale, rotationAxis, rotationAngle, program, vao, numIndices);
+  constructor(pos, scale, program, vao, numIndices, camera_dist) {
+    super(pos, scale, program, vao, numIndices);
     this.camera_dist = camera_dist;
+    const q1 = Quat.normalize(Quat.make(0.35, Vec3.make(43, 542, 232)));
+    const q2 = Quat.normalize(Quat.make(364, Vec3.make(475, 235, 323)));
+    console.log("check this: ", q1, q2, Quat.hamiltonProduct(q1, q2));
+  }
+  update(moveVec, camera, dt) {
+    const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), camera.forward, UP_VEC2));
+    const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, 0, moveVec.z, 1));
+    if (moveVec.y > 0) this.vel.y += 5e-4 * dt;
+    this.vel = Vec3.add(this.vel, Vec3.multScalar(Vec3.make(newMoveVec.x, 0, newMoveVec.z), 5e-4 * dt));
+    const sub = Vec3.sub(Vec3.make(-moveVec.z, 0, moveVec.x), this.rotationAxis);
+    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 5e-3 * dt));
+    if (this.rotationAxis.x == 0 && this.rotationAxis.y == 0 && this.rotationAxis.z == 0) {
+      this.rotationAxis = UP_VEC2;
+    }
+    const angle = Math.atan2(camera.forward.x, camera.forward.z);
+    this.setRotation([Quat.makeFromAxis(angle, UP_VEC2), Quat.makeFromAxis(Math.PI / 2, this.rotationAxis)]);
+    this.vel.x *= 0.99;
+    this.vel.z *= 0.99;
+    const subY = Vec3.sub(Vec3.make(0, 1, 0), this.rotationAxis);
+    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 2e-3 * dt));
+    this.pos = Vec3.add(this.pos, this.vel);
   }
 };
+
+// src/Physics.ts
+var GRAVITY = -1e-4;
+var ATMOSPHERE_FRICTION = 1e-3;
+function updateEntitiesPhysics(entities, dt) {
+  for (let e of entities) {
+    updateEntity(e, dt);
+  }
+}
+function updateEntity(e, dt) {
+  e.vel.y += dt * (GRAVITY - ATMOSPHERE_FRICTION * e.vel.y);
+}
 
 // src/Game.ts
 var Game = class {
@@ -1513,7 +1567,7 @@ var Game = class {
     this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
     this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
     this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
-    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"]);
+    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
     this.shaders["main"].bind(gl);
     console.log("error: ", gl.getError());
     const vPosLoc = this.shaders["main"].getAttrib(gl, "vPos");
@@ -1529,13 +1583,10 @@ var Game = class {
     this.vaos["table"] = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["lander"] = create3dPosColorInterleavedVao(gl, landerVertices, landerIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     gl.viewport(0, 0, this.width, this.height);
-    const UP_VEC2 = Vec3.make(0, 1, 0);
     this.shapes = [];
     this.player = new Player(
-      Vec3.make(50, 4, 40),
+      Vec3.make(10, 5, 0),
       Vec3.make(0.4, 0.4, 0.4),
-      UP_VEC2,
-      0,
       this.shaders["main"],
       this.vaos["lander"],
       models["lander"].indices.length,
@@ -1544,8 +1595,6 @@ var Game = class {
     this.light = new Light(
       Vec3.make(4, 20, 2),
       Vec3.make(0.2, 0.2, 0.2),
-      UP_VEC2,
-      0,
       this.shaders["light"],
       this.vaos["cube"],
       CUBE_INDICES.length,
@@ -1591,9 +1640,11 @@ var Game = class {
   }
   update(gl, dt) {
     this.total_time += dt;
+    this.player.update(this.moveVector, this.pCamera, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
+    this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
+    updateEntitiesPhysics([this.player], dt);
     this.mouseMoveVector = Vec2.make(0, 0);
-    this.perlinFloor.update(gl, this.perlin3d, this.pCamera.pos);
   }
   setShaderUniform(gl, shader, matViewProj) {
     shader.bind(gl);
@@ -1621,6 +1672,11 @@ var Game = class {
     this.player.draw(gl);
     gl.finish();
     this.perlinFloor.updateSwaps(gl);
+    const error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+      console.error("WebGL Error:", error);
+      throw new Error("opengl said something went wrong");
+    }
     this.shaders["light"].unbind(gl);
   }
 };
@@ -1722,14 +1778,13 @@ function initGame(shaders, models) {
   game = new Game(gl, canvas.width, canvas.height, shaders, models);
   let lastTime = performance.now();
   let dt;
-  game.update(gl, 0.1);
   function step() {
     const now = performance.now();
     dt = (now - lastTime) / 5;
     lastTime = now;
     if (!gl) return;
-    game.draw(gl);
     game.update(gl, dt);
+    game.draw(gl);
     requestAnimationFrame(step);
   }
   step();

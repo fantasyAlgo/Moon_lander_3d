@@ -40,12 +40,16 @@ export class PerlinFloor {
   testData : number[] = [1,2,3,4,5,6,7,8,9];
 
 
-
-
-  constructor(gl : WebGL2RenderingContext, perlin3d : Perlin3d, shader : ShaderProgram){ 
+  constructor(gl : WebGL2RenderingContext, perlin3d : Perlin3d, shader : ShaderProgram, initial_pos : Vec3){ 
     const nChunks = 3;
     this.shader = shader;
-    this.cChunk = Vec2.make(0,0);
+
+    const xIndxChunk = Math.floor((Math.abs(initial_pos.x)+this.WIDTH)/(this.WIDTH*2.0));
+    const yIndxChunk = Math.floor((Math.abs(initial_pos.z)+this.HEIGHT)/(this.HEIGHT*2.0));
+
+    const xChunk = xIndxChunk*this.WIDTH*2.0 * Math.sign(initial_pos.x);
+    const yChunk = yIndxChunk*this.HEIGHT*2.0 * Math.sign(initial_pos.z);
+    this.cChunk = Vec2.make(xChunk,yChunk);
 
     const floorIndicesData = getFloorIndices(perlin3d.grid_width, perlin3d.grid_height);
 
@@ -61,6 +65,8 @@ export class PerlinFloor {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.noiseTexture);
     gl.uniform1i(shader.getUniform(gl, "u_noiseTex"), 0);
+    gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
+
 
     for (let i = 0; i < nChunks*nChunks; i++){
       const pos : Vec2 = Vec2.make(Math.floor(i/nChunks) - 1, i%nChunks - 1);
@@ -72,9 +78,10 @@ export class PerlinFloor {
       const vao = createFloorVao(gl, this.verticesVBO[this.verticesVBO.length-1], floorIndices, vPosLoc, vNormalLoc);
       const UP_VEC = Vec3.make(0, 1, 0);
       this.shapes.push(
-        new Shape(Vec3.make(pos.x*this.WIDTH*2.0, 0 , pos.y*this.HEIGHT*2.0), Vec3.make(this.WIDTH, 1, this.HEIGHT), UP_VEC, 0, shader, vao, floorIndicesData.length)
+        new Shape(Vec3.make(pos.x*this.WIDTH*2.0, 0 , pos.y*this.HEIGHT*2.0), Vec3.make(this.WIDTH, 1, this.HEIGHT), shader, vao, floorIndicesData.length)
       );
    }
+   this.pendingUpdateSwaps = [];
    console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
 
    shader.unbind(gl);
@@ -139,8 +146,13 @@ export class PerlinFloor {
       const mid = Math.floor((from + to)/2);
       this.swap(from, to);
       this.swap(from, mid); 
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) {
+        console.error("WebGL Error in swaps:", error);
+      }
     }
     this.pendingUpdateSwaps = [];
+    this.shader.bind(gl);
     gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
   }
 
@@ -152,7 +164,7 @@ export class PerlinFloor {
       const el : QueueChanges | undefined = this.queueChanges.shift();
       if (el == undefined) return;
 
-      gl.finish();
+      //gl.finish();
 
       const iX = Math.floor((this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0));
@@ -165,14 +177,13 @@ export class PerlinFloor {
 
       const error = gl.getError();
       if (error !== gl.NO_ERROR) {
-        console.error("WebGL Error:", error);
+        console.error("WebGL Error in update:", error);
       }
 
 
       //console.log("########################");
       //console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
     }
-
 
     const xIndxChunk = Math.floor((Math.abs(pos.x)+this.WIDTH)/(this.WIDTH*2.0));
     const yIndxChunk = Math.floor((Math.abs(pos.z)+this.HEIGHT)/(this.HEIGHT*2.0));

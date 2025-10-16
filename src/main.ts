@@ -34,15 +34,14 @@ function initGame(shaders : Object, models : Object){
   let lastTime = performance.now();
   let dt : number;
 
-  game.update(gl, 0.1);
   function step(){
     const now = performance.now();
     dt = (now-lastTime)/5;
     lastTime = now;
 
     if (!gl) return;
-    game.draw(gl);
     game.update(gl, dt);
+    game.draw(gl);
 
     requestAnimationFrame(step);
   }

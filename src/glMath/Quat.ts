@@ -30,9 +30,9 @@ export class Quat {
   }
   static hamiltonProduct(q1 : Quat, q2 : Quat) : Quat{
     const r = q1.r*q2.r - q1.vec.x*q2.vec.x - q1.vec.y*q2.vec.y - q1.vec.z*q2.vec.z;
-    const vecX = q1.r*q2.vec.x - q1.vec.x*q2.r - q1.vec.y*q2.vec.z - q1.vec.z*q2.vec.y;
-    const vecY = q1.r*q2.vec.y - q1.vec.x*q2.vec.z - q1.vec.y*q2.r - q1.vec.z*q2.vec.x;
-    const vecZ = q1.r*q2.vec.z - q1.vec.x*q2.vec.y - q1.vec.y*q2.vec.x - q1.vec.z*q2.r;
+    const vecX = q1.r*q2.vec.x + q1.vec.x*q2.r + q1.vec.y*q2.vec.z - q1.vec.z*q2.vec.y;
+    const vecY = q1.r*q2.vec.y - q1.vec.x*q2.vec.z + q1.vec.y*q2.r + q1.vec.z*q2.vec.x;
+    const vecZ = q1.r*q2.vec.z + q1.vec.x*q2.vec.y - q1.vec.y*q2.vec.x + q1.vec.z*q2.r;
     return new Quat(r, Vec3.make(vecX, vecY, vecZ));
   }
   static makeFromAxis(angle : number, axis : Vec3){ // The angle should be in radians

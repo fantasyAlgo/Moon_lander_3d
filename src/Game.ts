@@ -13,6 +13,7 @@ import { Light } from "./Light.ts";
 import { Perlin3d } from "./Perlin3d.ts";
 import { PerlinFloor } from "./PerlinFloor.ts";
 import { Player } from "./Player.ts";
+import { updateEntitiesPhysics } from "./Physics.ts";
 
 
 
@@ -91,7 +92,7 @@ export class Game {
     this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
     this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
 
-    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"]);
+    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
     this.shaders["main"].bind(gl);
 
     console.log("error: ", gl.getError());
@@ -112,16 +113,13 @@ export class Game {
 
     gl.viewport(0, 0, this.width, this.height);
 
-    const UP_VEC = Vec3.make(0, 1, 0);
     this.shapes = [];
-    //this.shapes.push(new Shape(Vec3.make(0, 1.0, 0), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.shaders["main"], this.cubeVao, CUBE_INDICES.length));
-    //this.shapes.push(new Shape(Vec3.make(2, 1.0, -1), Vec3.make(1.0, 1.0, 1.0), UP_VEC, 0, this.shaders["main"], this.cubeVao, CUBE_INDICES.length));
     this.player = new Player(
-      Vec3.make(50, 4.0, 40), Vec3.make(0.4, 0.4, 0.4), UP_VEC, 0, this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 4.0
+      Vec3.make(10, 5.0, 0), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 4.0
     );
 
     this.light = new Light(
-      Vec3.make(4, 20.0, 2), Vec3.make(0.2, 0.2, 0.2), UP_VEC, 0, this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5)
+      Vec3.make(4, 20.0, 2), Vec3.make(0.2, 0.2, 0.2), this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5)
     );
   }
 
@@ -170,10 +168,14 @@ export class Game {
   update(gl : WebGL2RenderingContext, dt : number) {
 
     this.total_time += dt;
+    this.player.update(this.moveVector, this.pCamera, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
-    this.mouseMoveVector = Vec2.make(0,0);
+    this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
+    updateEntitiesPhysics([this.player], dt);
 
-    this.perlinFloor.update(gl, this.perlin3d, this.pCamera.pos);
+
+
+    this.mouseMoveVector = Vec2.make(0,0);
   }
 
 
@@ -212,6 +214,12 @@ export class Game {
     
     gl.finish();
     this.perlinFloor.updateSwaps(gl);
+
+    const error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+      console.error("WebGL Error:", error);
+      throw new Error("opengl said something went wrong");
+    }
 
     this.shaders["light"].unbind(gl);
   }
