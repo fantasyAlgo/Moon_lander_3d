@@ -1,7 +1,7 @@
 import { CoupledFloorVertex, webglVerticesFromCoupledFloorVertices} from "./CoupledVertex";
 import { Mat4x4 } from "./glMath/mat4x4";
-import { Vec2 } from "./glMath/vec2";
-import { Vec3 } from "./glMath/vec3";
+import { Vec2 } from "../glMath/vec2";
+import { Vec3 } from "../glMath/vec3";
 import { Perlin3d } from "./Perlin3d";
 
 export const triangleVertices = new Float32Array([

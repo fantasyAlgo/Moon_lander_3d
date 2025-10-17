@@ -17,6 +17,13 @@ export class Quat {
     return new Quat(this.r, Vec3.make(-this.vec.x, -this.vec.y, -this.vec.z));
   }
 
+  rotate(v : Vec3) : Vec3{
+    const q = Quat.make(0, v);
+    const rotated = Quat.hamiltonProduct(Quat.hamiltonProduct(this, q), this.conjugate());
+    return rotated.vec;
+  }
+
+
   static make(r : number, vector : Vec3){
     return new Quat(r, vector);
   }
@@ -41,6 +48,8 @@ export class Quat {
     let vec = Vec3.multScalar(nAxis, Math.sin(angle/2.0));
     return Quat.normalize(new Quat(r, vec));
   }
+
+
 
 
 }

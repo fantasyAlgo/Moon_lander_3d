@@ -1,7 +1,7 @@
 import { Mat4x4 } from "./glMath/mat4x4";
 import { Quat } from "./glMath/Quat";
 import { Vec3 } from "./glMath/vec3";
-import { ShaderProgram } from "./shaderProgram";
+import { ShaderProgram } from "./helpers/shaderProgram";
 
 export class Shape {
   public vel : Vec3 = Vec3.make(0,0,0);

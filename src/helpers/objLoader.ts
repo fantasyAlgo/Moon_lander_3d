@@ -1,5 +1,5 @@
-import { Vec3 } from "./glMath/vec3.ts"
-import { Vec2 } from "./glMath/vec2.ts"
+import { Vec3 } from "../glMath/vec3.ts"
+import { Vec2 } from "../glMath/vec2.ts"
 import { CoupledVertex, webglVerticesFromCoupledVertices } from "./CoupledVertex.ts";
 
 

@@ -1,4 +1,4 @@
-// src/glHelpers.ts
+// src/helpers/glHelpers.ts
 function showError(errorText) {
   console.error(errorText);
   const errorBoxDiv = document.getElementById("error-box");
@@ -139,7 +139,7 @@ function makeHeightTextureFromData(gl, data, width, height) {
   return texture;
 }
 
-// src/shaderProgram.ts
+// src/helpers/shaderProgram.ts
 var ShaderProgram = class {
   id;
   constructor(gl, vertexSource, fragmentSource) {
@@ -198,7 +198,7 @@ var ShaderProgram = class {
   }
 };
 
-// src/CoupledVertex.ts
+// src/helpers/CoupledVertex.ts
 var CoupledFloorVertex = class {
   constructor(pos, normal) {
     this.pos = pos;
@@ -317,7 +317,7 @@ var Vec3 = class _Vec3 {
     this.z = this.z < zMin ? zMin : this.z > zMax ? zMax : this.z;
   }
   static normalize(v) {
-    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    if (v.distance == 0) return v;
     return new _Vec3(v.x / v.distance, v.y / v.distance, v.z / v.distance);
   }
   static distance(v1, v2) {
@@ -356,7 +356,7 @@ var Vec3 = class _Vec3 {
   }
 };
 
-// src/shapesVertices.ts
+// src/helpers/loadPerlinFloor.ts
 var triangleVertices = new Float32Array([
   0,
   0.5,
@@ -1190,6 +1190,11 @@ var Quat = class _Quat {
   conjugate() {
     return new _Quat(this.r, Vec3.make(-this.vec.x, -this.vec.y, -this.vec.z));
   }
+  rotate(v) {
+    const q = _Quat.make(0, v);
+    const rotated = _Quat.hamiltonProduct(_Quat.hamiltonProduct(this, q), this.conjugate());
+    return rotated.vec;
+  }
   static make(r, vector) {
     return new _Quat(r, vector);
   }
@@ -1259,7 +1264,7 @@ var Light = class extends Shape {
   }
 };
 
-// src/Perlin3d.ts
+// src/helpers/Perlin3d.ts
 function fade(t) {
   return 6 * Math.pow(t, 5) - 15 * Math.pow(t, 4) + 10 * Math.pow(t, 3);
 }
@@ -1484,22 +1489,20 @@ var Player = class extends Shape {
     console.log("check this: ", q1, q2, Quat.hamiltonProduct(q1, q2));
   }
   update(moveVec, camera, dt) {
-    const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), camera.forward, UP_VEC2));
-    const newMoveVec = Mat4x4.multVec4(moveMatrix, Vec4.make(moveVec.x, 0, moveVec.z, 1));
-    if (moveVec.y > 0) this.vel.y += 5e-4 * dt;
-    this.vel = Vec3.add(this.vel, Vec3.multScalar(Vec3.make(newMoveVec.x, 0, newMoveVec.z), 5e-4 * dt));
     const sub = Vec3.sub(Vec3.make(-moveVec.z, 0, moveVec.x), this.rotationAxis);
     this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 5e-3 * dt));
-    if (this.rotationAxis.x == 0 && this.rotationAxis.y == 0 && this.rotationAxis.z == 0) {
+    if (this.rotationAxis.x == 0 && this.rotationAxis.y == 0 && this.rotationAxis.z == 0)
       this.rotationAxis = UP_VEC2;
-    }
     const angle = Math.atan2(camera.forward.x, camera.forward.z);
     this.setRotation([Quat.makeFromAxis(angle, UP_VEC2), Quat.makeFromAxis(Math.PI / 2, this.rotationAxis)]);
+    const perp = this.rot.rotate(Vec3.make(0, 1, 0));
+    if (moveVec.y > 0)
+      this.vel = Vec3.add(this.vel, Vec3.multScalar(perp, 5e-4 * dt));
     this.vel.x *= 0.99;
     this.vel.z *= 0.99;
     const subY = Vec3.sub(Vec3.make(0, 1, 0), this.rotationAxis);
     this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 2e-3 * dt));
-    this.pos = Vec3.add(this.pos, this.vel);
+    this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2 * dt));
   }
 };
 
@@ -1612,7 +1615,7 @@ var Game = class {
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
     if (e.key == "s")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
-    if (e.key == "e")
+    if (e.code == "Space")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
     if (e.key == "q")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, -1, 0));
@@ -1629,7 +1632,7 @@ var Game = class {
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
     if (e.key == "s")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
-    if (e.key == "e")
+    if (e.code == "Space")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
     if (e.key == "q")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, -1, 0));
@@ -1681,7 +1684,7 @@ var Game = class {
   }
 };
 
-// src/objLoader.ts
+// src/helpers/objLoader.ts
 var ModelData = class {
   constructor(vertices, indices) {
     this.vertices = vertices;

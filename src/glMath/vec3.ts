@@ -21,7 +21,7 @@ export class Vec3 {
   }
 
   static normalize(v : Vec3) : Vec3{
-    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    if (v.distance == 0) return v;
     return new Vec3(v.x/v.distance, v.y/v.distance, v.z/v.distance);
   }
   static distance(v1 : Vec3, v2 : Vec3) : number{

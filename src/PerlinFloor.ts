@@ -1,12 +1,11 @@
-import { createBufferData, createFloorVao, createStaticIndexBuffer, makeHeightTextureFromData, makeRandomMatrix } from "./glHelpers";
+import { createBufferData, createFloorVao, createStaticIndexBuffer, makeHeightTextureFromData, makeRandomMatrix } from "./helpers/glHelpers";
 import { Mat4x4 } from "./glMath/mat4x4";
 import { Vec2 } from "./glMath/vec2";
 import { Vec3 } from "./glMath/vec3";
-import { Perlin3d } from "./Perlin3d";
-import { ShaderProgram } from "./shaderProgram";
+import { Perlin3d } from "./helpers/Perlin3d";
+import { ShaderProgram } from "./helpers/shaderProgram";
 import { Shape } from "./Shape";
-import { getFloorIndices, getFloorVertices } from "./shapesVertices";
-
+import { getFloorIndices, getFloorVertices } from "./helpers/loadPerlinFloor";
 
 class QueueChanges{
   constructor(

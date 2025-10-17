@@ -1,9 +1,9 @@
 import { Game } from "./Game.ts";
-import { showError } from "./glHelpers.ts";
+import { showError } from "./helpers/glHelpers.ts";
 import { vShaderCode } from "./vertexShader.ts";
 import { fShaderCode } from "./fragmentShader.ts";
 import { Mat4x4 } from "./glMath/mat4x4.ts";
-import { loadObj } from "./objLoader.ts";
+import { loadObj } from "./helpers/objLoader.ts";
 
 async function loadText(url: string): Promise<string> {
   const response = await fetch(url);

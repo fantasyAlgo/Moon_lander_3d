@@ -1,4 +1,4 @@
-import { Vec2 } from "./glMath/vec2";
+import { Vec2 } from "../glMath/vec2";
 
 function fade(t : number){
   return 6*Math.pow(t, 5) - 15*Math.pow(t, 4) + 10*Math.pow(t, 3);

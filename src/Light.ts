@@ -1,5 +1,5 @@
 import { Vec3 } from "./glMath/vec3";
-import { ShaderProgram } from "./shaderProgram";
+import { ShaderProgram } from "./helpers/shaderProgram";
 import { Shape } from "./Shape";
 
 export class Light extends Shape {

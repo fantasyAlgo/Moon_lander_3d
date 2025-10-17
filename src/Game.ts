@@ -1,6 +1,6 @@
-import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createStaticBufferData, createStaticIndexBuffer, makeHeightTextureFromData, makeRandomMatrix, showError } from "./glHelpers.ts";
-import { ShaderProgram } from "./shaderProgram";
-import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./shapesVertices";
+import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createStaticBufferData, createStaticIndexBuffer, makeHeightTextureFromData, makeRandomMatrix, showError } from "./helpers/glHelpers.ts";
+import { ShaderProgram } from "./helpers/shaderProgram";
+import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./helpers/loadPerlinFloor.ts"
 
 import {Mat4x4 } from "./glMath/mat4x4.ts"
 import {Vec3 } from "./glMath/vec3.ts"
@@ -10,7 +10,7 @@ import { Shape } from "./Shape.ts";
 import { Vec2 } from "./glMath/vec2.ts";
 import { Camera } from "./Camera.ts";
 import { Light } from "./Light.ts";
-import { Perlin3d } from "./Perlin3d.ts";
+import { Perlin3d } from "./helpers/Perlin3d.ts";
 import { PerlinFloor } from "./PerlinFloor.ts";
 import { Player } from "./Player.ts";
 import { updateEntitiesPhysics } from "./Physics.ts";
@@ -135,7 +135,7 @@ export class Game {
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
     if (e.key == "s")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
-    if (e.key == "e") 
+    if (e.code == "Space") 
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
     if (e.key == "q") 
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, -1, 0));
@@ -153,7 +153,7 @@ export class Game {
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
     if (e.key == "s")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
-    if (e.key == "e") 
+    if (e.code == "Space") 
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
     if (e.key == "q") 
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, -1, 0));
