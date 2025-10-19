@@ -1125,6 +1125,10 @@ var Vec2 = class _Vec2 {
     const EPS = 1e-3;
     return Math.abs(v.x - this.x) < EPS && Math.abs(v.y - this.y) < EPS;
   }
+  copy(v) {
+    this.x = v.x;
+    this.y = v.y;
+  }
   static normalize(v) {
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");
     return new _Vec2(v.x / v.distance, v.y / v.distance);
@@ -1261,10 +1265,6 @@ var Shape = class {
     this.rot = Quat.normalize(q);
   }
   updateWorldData() {
-    let matWorld = Mat4x4.fromQuat(this.rot);
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(this.scale));
-    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
-    this.model = matWorld;
     let result = [];
     for (let i = 0; i < this.vertices.length; i += 11) {
       const v = Vec4.make(this.vertices[i], this.vertices[i + 1], this.vertices[i + 2], 1);
@@ -1446,6 +1446,9 @@ var PerlinFloor = class {
     console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
     shader.unbind(gl);
   }
+  getValue(p, x, y) {
+    const nX = x / 20 + 1;
+  }
   updateChunk(gl, perlin3d, newChunk) {
     const dx = Math.sign(this.cChunk.x - newChunk.x);
     const dy = Math.sign(this.cChunk.y - newChunk.y);
@@ -1569,6 +1572,25 @@ function updateEntity(e, dt) {
   e.vel.y += dt * (GRAVITY - ATMOSPHERE_FRICTION * e.vel.y);
 }
 
+// src/helpers/CollisionHelpers.ts
+function getFloorProjection(s) {
+  let leftMost = Vec2.make(Infinity, 0);
+  let rightMost = Vec2.make(-Infinity, 0);
+  let upMost = Vec2.make(0, -Infinity);
+  let bottomMost = Vec2.make(0, Infinity);
+  for (let i = 0; i < s.length; i++) {
+    if (s[i].x > rightMost.x)
+      rightMost.copy(Vec2.make(s[i].x, s[i].z));
+    if (s[i].x < leftMost.x)
+      leftMost.copy(Vec2.make(s[i].x, s[i].z));
+    if (s[i].z > upMost.y)
+      upMost.copy(Vec2.make(s[i].x, s[i].z));
+    if (s[i].z < bottomMost.y)
+      bottomMost.copy(Vec2.make(s[i].x, s[i].z));
+  }
+  return [rightMost, leftMost, upMost, bottomMost];
+}
+
 // src/Collision.ts
 var ORIGIN = Vec3.make(0, 0, 0);
 var Collision = class _Collision {
@@ -1584,6 +1606,10 @@ var Collision = class _Collision {
   }
   static supportPoint(d1, d2, dir) {
     return Vec3.sub(Shape.getSupportPoint(d1, dir), Shape.getSupportPoint(d2, Vec3.multScalar(dir, -1)));
+  }
+  static checkPerlinCollision(s1, p) {
+    const data = s1.modelData;
+    const abab = getFloorProjection(data);
   }
   static GJK(s1, s2) {
     const data1 = s1.modelData;
@@ -1603,7 +1629,6 @@ var Collision = class _Collision {
         return new _Collision(true);
       }
     }
-    console.log("t: ", t);
     return new _Collision(false);
   }
   static handleSimplex(simplex, dir) {
@@ -1708,8 +1733,6 @@ var Collision = class _Collision {
       simplex.push(...trs);
       return false;
     }
-    console.log(A, B, C, D);
-    console.log("Normals: ", Vec3.normalize(BCDPerp), Vec3.normalize(BO));
     return true;
   }
 };
@@ -1843,6 +1866,7 @@ var Game = class {
     this.mouseMoveVector.y *= -1;
   }
   update(gl, dt) {
+    const coll = Collision.GJK(this.light, this.player);
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
@@ -1851,8 +1875,6 @@ var Game = class {
     this.light.updateWorldData();
     this.player.updateWorldData();
     this.mouseMoveVector = Vec2.make(0, 0);
-    const coll = Collision.GJK(this.light, this.player);
-    console.log(coll, coll.collided);
   }
   setShaderUniform(gl, shader, matViewProj) {
     shader.bind(gl);

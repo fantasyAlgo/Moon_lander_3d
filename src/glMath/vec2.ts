@@ -18,6 +18,10 @@ export class Vec2 {
     const EPS : number = 0.001;
     return Math.abs(v.x-this.x) < EPS && Math.abs(v.y - this.y) < EPS;
   }
+  copy(v : Vec2){
+    this.x = v.x;
+    this.y = v.y;
+  }
 
   static normalize(v : Vec2) : Vec2{
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");

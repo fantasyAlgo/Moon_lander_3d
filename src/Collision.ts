@@ -1,6 +1,9 @@
+import { Vec2 } from "./glMath/vec2";
 import { Vec3 } from "./glMath/vec3";
 import { Vec4 } from "./glMath/vec4";
+import { getFloorProjection } from "./helpers/CollisionHelpers";
 import { Perlin3d } from "./helpers/Perlin3d";
+import { PerlinFloor } from "./PerlinFloor";
 import { Shape } from "./Shape";
 
 
@@ -22,8 +25,10 @@ export class Collision {
     return Vec3.sub(Shape.getSupportPoint(d1, dir),  Shape.getSupportPoint(d2, Vec3.multScalar(dir, -1.0)));
   }
 
-  static checkPerlinCollision(s1 : Shape, p : Perlin3d){
-    const data1 : Vec3[] = s1.modelData;
+  static checkPerlinCollision(s1 : Shape, p : PerlinFloor){
+    const data : Vec3[] = s1.modelData;
+    const abab : Vec2[] = getFloorProjection(data);
+
   }
 
 

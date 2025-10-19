@@ -86,6 +86,12 @@ export class PerlinFloor {
    shader.unbind(gl);
   }
 
+  getValue(p : Perlin3d, x : number, y : number) : number{
+    const i : number = ((x-this.cChunk.x)/this.WIDTH+1)*p.grid_width;
+    const j : number = ((y-this.cChunk.y)/this.HEIGHT+1)*p.grid_height;
+
+  }
+
   updateChunk(gl : WebGL2RenderingContext, perlin3d : Perlin3d, newChunk : Vec2){
     const dx = Math.sign(this.cChunk.x - newChunk.x);
     const dy = Math.sign(this.cChunk.y - newChunk.y);
@@ -115,18 +121,6 @@ export class PerlinFloor {
       this.queueChanges.push(new QueueChanges(8, 2, chunk));
     }
     this.cChunk = newChunk;
-    /*
-    console.log("hes using us!");
-    const iX = (this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0);
-    const iY = (this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0);
-    const new_values = getFloorVertices(perlin3d, Vec2.make(iX, iY));
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new_values);
-
-    this.shape.pos.x = this.cChunk.x;
-    this.shape.pos.z = this.cChunk.y;
-    */
   }
 
   swap(from : number, to : number){
