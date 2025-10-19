@@ -25,24 +25,40 @@ export class Collision {
     return Vec3.sub(Shape.getSupportPoint(d1, dir),  Shape.getSupportPoint(d2, Vec3.multScalar(dir, -1.0)));
   }
 
-  static checkPerlinCollision(s1 : Shape, p : PerlinFloor){
-    const data : Vec3[] = s1.modelData;
-    const abab : Vec2[] = getFloorProjection(data);
-
-  }
-
-
-
-
-
-
-  static GJK(s1 : Shape, s2 : Shape) : Collision {
+  static checkShapeCollision(s1 : Shape, s2 : Shape){
     const data1 : Vec3[] = s1.modelData;
     const data2 : Vec3[] = s2.modelData;
     const c1 : Vec3 = s1.getCenter();
     const c2 : Vec3 = s2.getCenter();
-
     let dir : Vec3 = Vec3.sub(c1, c2);
+    return Collision.GJK(data1, data2, dir);
+
+  }
+  static checkPerlinCollision(s1 : Shape, p : Perlin3d, pHandler : PerlinFloor){
+    const data : Vec3[] = s1.modelData;
+    const abab : Vec2[] = getFloorProjection(data);
+    let floorPoints : Vec3[] = [];
+    const f = (e) => { 
+      floorPoints.push(Vec3.make(
+        e.x, 
+        pHandler.getValue(e.x, e.y),
+        e.y
+      ));
+      floorPoints.push(Vec3.make(
+        e.x, 
+        -100.0,
+        e.y
+      ));
+
+    }
+    abab.forEach(f);
+    return Collision.GJK(data, floorPoints, Vec3.make(1, 0, 0));
+  }
+
+
+
+  static GJK(data1 : Vec3[], data2 : Vec3[], initial_dir : Vec3) : Collision {
+    let dir : Vec3 = initial_dir;
     let p : Vec3;
     let simplex : Vec3[] = [Collision.supportPoint(data1, data2, dir)];
     dir = Vec3.normalize(Vec3.sub(ORIGIN, simplex[0]));

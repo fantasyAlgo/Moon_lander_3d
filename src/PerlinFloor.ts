@@ -87,8 +87,8 @@ export class PerlinFloor {
   }
 
   getValue(p : Perlin3d, x : number, y : number) : number{
-    const i : number = ((x-this.cChunk.x)/this.WIDTH+1)*p.grid_width;
-    const j : number = ((y-this.cChunk.y)/this.HEIGHT+1)*p.grid_height;
+    const i : number = (x/this.WIDTH+1)*p.grid_width;
+    const j : number = (y/this.HEIGHT+1)*p.grid_height;
 
   }
 

@@ -1447,7 +1447,8 @@ var PerlinFloor = class {
     shader.unbind(gl);
   }
   getValue(p, x, y) {
-    const nX = x / 20 + 1;
+    const i = (x / this.WIDTH + 1) * p.grid_width;
+    const j = (y / this.HEIGHT + 1) * p.grid_height;
   }
   updateChunk(gl, perlin3d, newChunk) {
     const dx = Math.sign(this.cChunk.x - newChunk.x);
@@ -1607,16 +1608,35 @@ var Collision = class _Collision {
   static supportPoint(d1, d2, dir) {
     return Vec3.sub(Shape.getSupportPoint(d1, dir), Shape.getSupportPoint(d2, Vec3.multScalar(dir, -1)));
   }
-  static checkPerlinCollision(s1, p) {
-    const data = s1.modelData;
-    const abab = getFloorProjection(data);
-  }
-  static GJK(s1, s2) {
+  static checkShapeCollision(s1, s2) {
     const data1 = s1.modelData;
     const data2 = s2.modelData;
     const c1 = s1.getCenter();
     const c2 = s2.getCenter();
     let dir = Vec3.sub(c1, c2);
+    return _Collision.GJK(data1, data2, dir);
+  }
+  static checkPerlinCollision(s1, p, pHandler) {
+    const data = s1.modelData;
+    const abab = getFloorProjection(data);
+    let floorPoints = [];
+    const f = (e) => {
+      floorPoints.push(Vec3.make(
+        e.x,
+        pHandler.getValue(e.x, e.y),
+        e.y
+      ));
+      floorPoints.push(Vec3.make(
+        e.x,
+        -100,
+        e.y
+      ));
+    };
+    abab.forEach(f);
+    return _Collision.GJK(data, floorPoints, Vec3.make(1, 0, 0));
+  }
+  static GJK(data1, data2, initial_dir) {
+    let dir = initial_dir;
     let p;
     let simplex = [_Collision.supportPoint(data1, data2, dir)];
     dir = Vec3.normalize(Vec3.sub(ORIGIN, simplex[0]));
