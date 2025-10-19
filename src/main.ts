@@ -42,8 +42,8 @@ function initGame(shaders : Object, models : Object){
     if (!gl) return;
     game.update(gl, dt);
     game.draw(gl);
-
-    requestAnimationFrame(step);
+    if (game.isRunning)
+      requestAnimationFrame(step);
   }
   step();
 }

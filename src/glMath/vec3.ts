@@ -19,6 +19,11 @@ export class Vec3 {
     this.y = this.y < yMin ? yMin : (this.y > yMax ? yMax : this.y);
     this.z = this.z < zMin ? zMin : (this.z > zMax ? zMax : this.z);
   }
+  copy(v : Vec3){
+    this.x = v.x;
+    this.y = v.y;
+    this.z = v.z;
+  }
 
   static normalize(v : Vec3) : Vec3{
     if (v.distance == 0) return v;
@@ -61,6 +66,16 @@ export class Vec3 {
   }
   static cross(a : Vec3, b : Vec3) : Vec3 {
     return new Vec3(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x);
+  }
+
+  static perp(A : Vec3, B: Vec3){
+    const ORIGIN : Vec3 = Vec3.make(0,0,0);
+    const AO = Vec3.normalize(Vec3.sub(ORIGIN, A));
+    const AB = Vec3.normalize(Vec3.sub(B, A));
+    const C = Vec3.cross(AB, AO);
+    let N = Vec3.cross(C, AB);
+    if (Vec3.dot(N, AO) < 0) N = Vec3.multScalar(N, -1.0);
+    return Vec3.normalize(N);
   }
 
 

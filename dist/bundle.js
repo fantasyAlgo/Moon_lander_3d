@@ -316,6 +316,11 @@ var Vec3 = class _Vec3 {
     this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
     this.z = this.z < zMin ? zMin : this.z > zMax ? zMax : this.z;
   }
+  copy(v) {
+    this.x = v.x;
+    this.y = v.y;
+    this.z = v.z;
+  }
   static normalize(v) {
     if (v.distance == 0) return v;
     return new _Vec3(v.x / v.distance, v.y / v.distance, v.z / v.distance);
@@ -353,6 +358,15 @@ var Vec3 = class _Vec3 {
   }
   static cross(a, b) {
     return new _Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+  }
+  static perp(A, B) {
+    const ORIGIN2 = _Vec3.make(0, 0, 0);
+    const AO = _Vec3.normalize(_Vec3.sub(ORIGIN2, A));
+    const AB = _Vec3.normalize(_Vec3.sub(B, A));
+    const C = _Vec3.cross(AB, AO);
+    let N = _Vec3.cross(C, AB);
+    if (_Vec3.dot(N, AO) < 0) N = _Vec3.multScalar(N, -1);
+    return _Vec3.normalize(N);
   }
 };
 
@@ -1222,20 +1236,23 @@ var Quat = class _Quat {
 
 // src/Shape.ts
 var Shape = class {
-  constructor(pos, scale, program, vao, numIndices) {
+  constructor(pos, scale, program, vao, numIndices, vertices = new Float32Array([])) {
     this.pos = pos;
     this.scale = scale;
     this.program = program;
     this.vao = vao;
     this.numIndices = numIndices;
+    this.vertices = vertices;
     this.rot = Quat.makeFromAxis(0, Vec3.make(0, 1, 0));
   }
+  model = Mat4x4.identity();
   vel = Vec3.make(0, 0, 0);
   tForce = Vec3.make(0, 0, 0);
   mass = 1;
   rot;
   rotationAxis = Vec3.make(0, 1, 0);
   rotationAngle = 0;
+  modelData = [];
   setRotation(quaterions) {
     if (quaterions.length == 0) return;
     let q = quaterions[0];
@@ -1243,23 +1260,56 @@ var Shape = class {
       q = Quat.hamiltonProduct(q, quaterions[i]);
     this.rot = Quat.normalize(q);
   }
+  updateWorldData() {
+    let matWorld = Mat4x4.fromQuat(this.rot);
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(this.scale));
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
+    this.model = matWorld;
+    let result = [];
+    for (let i = 0; i < this.vertices.length; i += 11) {
+      const v = Vec4.make(this.vertices[i], this.vertices[i + 1], this.vertices[i + 2], 1);
+      const rV = Mat4x4.multVec4(this.model, v);
+      result.push(rV.convertToVec3());
+    }
+    this.modelData = result;
+  }
   draw(gl) {
     const matWorldUniform = this.program.getUniform(gl, "matWorld");
     let matWorld = Mat4x4.fromQuat(this.rot);
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.scale(this.scale));
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
+    this.model = matWorld;
     this.program.bind(gl);
     gl.uniformMatrix4fv(matWorldUniform, false, matWorld.values);
     gl.bindVertexArray(this.vao);
     gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
   }
+  getCenter() {
+    let sum = Vec3.make(0, 0, 0);
+    this.modelData.forEach((x) => {
+      sum = Vec3.add(sum, x);
+    });
+    return Vec3.multScalar(sum, 1 / this.modelData.length);
+  }
+  static getSupportPoint(s, dir) {
+    let bV = Vec3.make(0, 0, 0);
+    let bestDot = -Infinity;
+    for (let i = 0; i < s.length; i++) {
+      const d = Vec3.dot(s[i], dir);
+      if (d > bestDot) {
+        bV = s[i];
+        bestDot = d;
+      }
+    }
+    return bV;
+  }
 };
 
 // src/Light.ts
 var Light = class extends Shape {
-  constructor(pos, scale, program, vao, numIndices, color) {
-    super(pos, scale, program, vao, numIndices);
+  constructor(pos, scale, program, vao, numIndices, color, vertices = new Float32Array([])) {
+    super(pos, scale, program, vao, numIndices, vertices);
     this.color = color;
   }
 };
@@ -1481,8 +1531,8 @@ var PerlinFloor = class {
 // src/Player.ts
 var UP_VEC2 = Vec3.make(0, 1, 0);
 var Player = class extends Shape {
-  constructor(pos, scale, program, vao, numIndices, camera_dist) {
-    super(pos, scale, program, vao, numIndices);
+  constructor(pos, scale, program, vao, numIndices, vertices, camera_dist) {
+    super(pos, scale, program, vao, numIndices, vertices);
     this.camera_dist = camera_dist;
     const q1 = Quat.normalize(Quat.make(0.35, Vec3.make(43, 542, 232)));
     const q2 = Quat.normalize(Quat.make(364, Vec3.make(475, 235, 323)));
@@ -1501,7 +1551,8 @@ var Player = class extends Shape {
     this.vel.x *= 0.99;
     this.vel.z *= 0.99;
     const subY = Vec3.sub(Vec3.make(0, 1, 0), this.rotationAxis);
-    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 2e-3 * dt));
+    if (moveVec.x == 0 && moveVec.z == 0)
+      this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 5e-3 * dt));
     this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2 * dt));
   }
 };
@@ -1518,8 +1569,154 @@ function updateEntity(e, dt) {
   e.vel.y += dt * (GRAVITY - ATMOSPHERE_FRICTION * e.vel.y);
 }
 
+// src/Collision.ts
+var ORIGIN = Vec3.make(0, 0, 0);
+var Collision = class _Collision {
+  collided;
+  normal;
+  depth;
+  contact_points;
+  constructor(collided, normal = Vec3.make(0, 0, 0), depth = 0) {
+    this.collided = collided;
+    this.normal = normal;
+    this.depth = depth;
+    this.contact_points = [];
+  }
+  static supportPoint(d1, d2, dir) {
+    return Vec3.sub(Shape.getSupportPoint(d1, dir), Shape.getSupportPoint(d2, Vec3.multScalar(dir, -1)));
+  }
+  static GJK(s1, s2) {
+    const data1 = s1.modelData;
+    const data2 = s2.modelData;
+    const c1 = s1.getCenter();
+    const c2 = s2.getCenter();
+    let dir = Vec3.sub(c1, c2);
+    let p;
+    let simplex = [_Collision.supportPoint(data1, data2, dir)];
+    dir = Vec3.normalize(Vec3.sub(ORIGIN, simplex[0]));
+    let t = 0;
+    while (t++ < 128) {
+      p = _Collision.supportPoint(data1, data2, dir);
+      if (Vec3.dot(p, dir) <= 0) return new _Collision(false);
+      simplex.push(p);
+      if (_Collision.handleSimplex(simplex, dir)) {
+        return new _Collision(true);
+      }
+    }
+    console.log("t: ", t);
+    return new _Collision(false);
+  }
+  static handleSimplex(simplex, dir) {
+    if (simplex.length <= 1 || simplex.length > 4) throw new Error("GJK produced a simplex with an invalid number of vertices");
+    if (simplex.length == 2) return _Collision.setNewPoint(simplex, dir);
+    else if (simplex.length == 3) return _Collision.checkTriangle(simplex, dir);
+    else return _Collision.checkTetrahedron(simplex, dir);
+  }
+  static setNewPoint(simplex, dir) {
+    const A = simplex[0];
+    const B = simplex[1];
+    const ABP = Vec3.cross(A, B);
+    const AO = Vec3.sub(ORIGIN, A);
+    if (Vec3.dot(ABP, AO) > 0) dir.copy(ABP);
+    else dir.copy(Vec3.multScalar(ABP, -1));
+    return false;
+  }
+  static checkTriangle(simplex, dir) {
+    if (simplex.length < 3) return false;
+    const A = simplex[0];
+    const B = simplex[1];
+    const C = simplex[2];
+    const CO = Vec3.normalize(Vec3.sub(ORIGIN, C));
+    const BO = Vec3.normalize(Vec3.sub(ORIGIN, B));
+    const AO = Vec3.normalize(Vec3.sub(ORIGIN, A));
+    let BCPerp = Vec3.perp(C, B);
+    if (Vec3.dot(BCPerp, Vec3.sub(A, C)) > 0) BCPerp = Vec3.multScalar(BCPerp, -1);
+    let ACPerp = Vec3.perp(A, C);
+    if (Vec3.dot(ACPerp, Vec3.sub(B, C)) > 0) ACPerp = Vec3.multScalar(ACPerp, -1);
+    let ABPerp = Vec3.perp(B, A);
+    if (Vec3.dot(ABPerp, Vec3.sub(C, A)) > 0) ABPerp = Vec3.multScalar(ABPerp, -1);
+    const BC_CO = Vec3.dot(BCPerp, CO);
+    const AC_CO = Vec3.dot(ACPerp, CO);
+    const AC_AO = Vec3.dot(ACPerp, AO);
+    const AB_AO = Vec3.dot(ABPerp, AO);
+    const AB_BO = Vec3.dot(ABPerp, BO);
+    const BC_BO = Vec3.dot(BCPerp, BO);
+    if (AC_CO > 0 && BC_CO > 0) {
+      simplex.length = 0;
+      simplex.push(C);
+      dir.copy(CO);
+      return false;
+    } else if (AC_AO >= 0 && AB_AO >= 0) {
+      simplex.length = 0;
+      simplex.push(A);
+      dir.copy(AO);
+      return false;
+    } else if (AB_BO >= 0 && BC_BO >= 0) {
+      simplex.length = 0;
+      simplex.push(B);
+      dir.copy(BO);
+      return false;
+    } else if (BC_CO >= 0) {
+      simplex.splice(0, 1);
+      dir.copy(BCPerp);
+      return false;
+    } else if (AC_AO >= 0) {
+      simplex.splice(1, 1);
+      dir.copy(ACPerp);
+      return false;
+    } else if (AB_BO >= 0) {
+      simplex.splice(2, 1);
+      dir.copy(ABPerp);
+      return false;
+    }
+    let abc = Vec3.cross(Vec3.sub(B, A), Vec3.sub(C, A));
+    if (Vec3.dot(abc, BO) < 0) abc = Vec3.multScalar(abc, -1);
+    dir.copy(abc);
+    return false;
+  }
+  static checkTetrahedron(simplex, dir) {
+    const A = simplex[0];
+    const B = simplex[1];
+    const C = simplex[2];
+    const D = simplex[3];
+    const AO = Vec3.multScalar(A, -1);
+    const BO = Vec3.multScalar(B, -1);
+    let ABDPerp = Vec3.cross(Vec3.sub(B, A), Vec3.sub(D, A));
+    let ACDPerp = Vec3.cross(Vec3.sub(C, A), Vec3.sub(D, A));
+    let BCDPerp = Vec3.cross(Vec3.sub(C, B), Vec3.sub(D, B));
+    if (Vec3.dot(ABDPerp, Vec3.sub(C, A)) > 0) ABDPerp = Vec3.multScalar(ABDPerp, -1);
+    if (Vec3.dot(ACDPerp, Vec3.sub(B, A)) > 0) ACDPerp = Vec3.multScalar(ACDPerp, -1);
+    if (Vec3.dot(BCDPerp, Vec3.sub(A, B)) > 0) BCDPerp = Vec3.multScalar(BCDPerp, -1);
+    if (Vec3.dot(ABDPerp, AO) > 0) {
+      const trs = [A, B, D];
+      _Collision.checkTriangle(trs, dir);
+      simplex.length = 0;
+      simplex.push(...trs);
+      return false;
+    }
+    if (Vec3.dot(ACDPerp, AO) > 0) {
+      const trs = [A, C, D];
+      _Collision.checkTriangle(trs, dir);
+      simplex.length = 0;
+      simplex.push(...trs);
+      return false;
+    }
+    if (Vec3.dot(BCDPerp, BO) > 0) {
+      const trs = [B, C, D];
+      _Collision.checkTriangle(trs, dir);
+      simplex.length = 0;
+      simplex.push(...trs);
+      return false;
+    }
+    console.log(A, B, C, D);
+    console.log("Normals: ", Vec3.normalize(BCDPerp), Vec3.normalize(BO));
+    return true;
+  }
+};
+
 // src/Game.ts
 var Game = class {
+  isRunning = true;
   cubeVertices;
   tableVertices;
   cubeIndices;
@@ -1588,23 +1785,30 @@ var Game = class {
     gl.viewport(0, 0, this.width, this.height);
     this.shapes = [];
     this.player = new Player(
-      Vec3.make(10, 5, 0),
+      Vec3.make(20, 5, 0),
       Vec3.make(0.4, 0.4, 0.4),
       this.shaders["main"],
       this.vaos["lander"],
       models["lander"].indices.length,
+      models["lander"].vertices,
       4
     );
     this.light = new Light(
       Vec3.make(4, 20, 2),
-      Vec3.make(0.2, 0.2, 0.2),
+      Vec3.make(1, 1, 1),
       this.shaders["light"],
       this.vaos["cube"],
       CUBE_INDICES.length,
-      Vec3.make(5, 5, 5)
+      Vec3.make(5, 5, 5),
+      CUBE_VERTICES
     );
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
   }
   handleKeyDown(e) {
+    if (e.key == "o") {
+      this.isRunning = false;
+      throw new Error("Stopped the program");
+    }
     if (e.key == "n")
       this.isShiftPressed = true;
     if (e.key == "w")
@@ -1617,8 +1821,6 @@ var Game = class {
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
-    if (e.key == "q")
-      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, -1, 0));
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
   handleKeyUp(e) {
@@ -1634,8 +1836,7 @@ var Game = class {
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
-    if (e.key == "q")
-      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, -1, 0));
+    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
   handleMouseMovement(e) {
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
@@ -1647,7 +1848,11 @@ var Game = class {
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     updateEntitiesPhysics([this.player], dt);
+    this.light.updateWorldData();
+    this.player.updateWorldData();
     this.mouseMoveVector = Vec2.make(0, 0);
+    const coll = Collision.GJK(this.light, this.player);
+    console.log(coll, coll.collided);
   }
   setShaderUniform(gl, shader, matViewProj) {
     shader.bind(gl);
@@ -1788,7 +1993,8 @@ function initGame(shaders, models) {
     if (!gl) return;
     game.update(gl, dt);
     game.draw(gl);
-    requestAnimationFrame(step);
+    if (game.isRunning)
+      requestAnimationFrame(step);
   }
   step();
 }

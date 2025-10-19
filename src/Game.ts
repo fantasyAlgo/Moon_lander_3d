@@ -14,6 +14,7 @@ import { Perlin3d } from "./helpers/Perlin3d.ts";
 import { PerlinFloor } from "./PerlinFloor.ts";
 import { Player } from "./Player.ts";
 import { updateEntitiesPhysics } from "./Physics.ts";
+import { Collision } from "./Collision.ts";
 
 
 
@@ -21,6 +22,7 @@ import { updateEntitiesPhysics } from "./Physics.ts";
 
 
 export class Game {
+  isRunning : boolean = true;
   cubeVertices: WebGLBuffer;
   tableVertices : WebGLBuffer;
   cubeIndices : WebGLBuffer;
@@ -115,15 +117,24 @@ export class Game {
 
     this.shapes = [];
     this.player = new Player(
-      Vec3.make(10, 5.0, 0), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 4.0
+      Vec3.make(20, 5.0, 0), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 
+      models["lander"].vertices, 4.0,
     );
 
     this.light = new Light(
-      Vec3.make(4, 20.0, 2), Vec3.make(0.2, 0.2, 0.2), this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5)
+      Vec3.make(4, 20.0, 2), Vec3.make(1.0, 1.0, 1.0), this.shaders["light"], 
+      this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5), CUBE_VERTICES, 
     );
+
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
   }
 
   handleKeyDown(e : KeyboardEvent){
+    if (e.key == "o"){
+      this.isRunning = false;
+      throw new Error("Stopped the program");
+    }
+
     if (e.key == "n")
       this.isShiftPressed = true;
 
@@ -137,8 +148,6 @@ export class Game {
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space") 
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
-    if (e.key == "q") 
-      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, -1, 0));
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
 
@@ -155,8 +164,7 @@ export class Game {
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space") 
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
-    if (e.key == "q") 
-      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, -1, 0));
+    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
 
   handleMouseMovement(e : MouseEvent){
@@ -166,6 +174,8 @@ export class Game {
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
+    const coll = Collision.GJK(this.light, this.player);
+    //console.log(coll, coll.collided);
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
@@ -174,7 +184,8 @@ export class Game {
     updateEntitiesPhysics([this.player], dt);
 
 
-
+    this.light.updateWorldData();
+    this.player.updateWorldData();
     this.mouseMoveVector = Vec2.make(0,0);
   }
 

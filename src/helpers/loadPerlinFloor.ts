@@ -22,6 +22,8 @@ export const fireyTriangleColors = new Uint8Array([
   233, 154, 26,
 ]);
 
+
+
 export const CUBE_VERTICES = new Float32Array([
   // Front face (normal: 0, 0, 1)
   -1.0, -1.0, 1.0,     1, 0, 0,    0, 0, 1, 0.0, 0.0,  // 0
@@ -54,6 +56,7 @@ export const CUBE_VERTICES = new Float32Array([
   -1.0, 1.0, 1.0,      0, 0, 1,    -1, 0, 0, 0.0, 0.0,
   -1.0, 1.0, -1.0,     0, 0, 1,    -1, 0, 0, 0.0, 0.0,
 ]);
+
 
 export const CUBE_INDICES = new Uint16Array([
   0, 1, 2,
@@ -96,12 +99,13 @@ export function getFloorVertices(perlin3d : Perlin3d, chunk : Vec2) : Float32Arr
       lst.push(vertex);
     }
   }
+
   for (let i = 1; i < H-1; i++) {
     for (let j = 1; j < W-1; j++) {
-      const up=      lst[(i-1)*H+j].pos.y;
-      const down=    lst[(i-1)*H+j].pos.y;
-      const left=    lst[i*H+j-1].pos.y;
-      const right=   lst[i*H+j+1].pos.y;
+      const up            =      lst[(i-1)*H+j].pos.y;
+      const down          =    lst[(i-1)*H+j].pos.y;
+      const left          =    lst[i*H+j-1].pos.y;
+      const right         =   lst[i*H+j+1].pos.y;
       lst[i*H+j].normal.x = up - down;
       lst[i*H+j].normal.z = left - right;
     }

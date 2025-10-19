@@ -9,8 +9,9 @@ export class Light extends Shape {
     program: ShaderProgram,
     vao: WebGLVertexArrayObject,
     numIndices: number,
-    public color: Vec3 
+    public color: Vec3,
+    vertices : Float32Array = new Float32Array([]),
   ) {
-    super(pos, scale, program, vao, numIndices);
+    super(pos, scale, program, vao, numIndices, vertices);
   }
 }
