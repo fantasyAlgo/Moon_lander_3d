@@ -63,7 +63,7 @@ async function getShaders(){
 async function getModels(){
   const model_source = "../models";
   const models_names = [
-    "lander"
+    "lander", "sphere"
   ];
   let object = {};
   for (let i = 0; i < models_names.length; i++)

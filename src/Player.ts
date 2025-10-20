@@ -18,9 +18,9 @@ export class Player extends Shape {
     public camera_dist : number,
   ){
       super(pos, scale, program, vao, numIndices, vertices);
-      const q1 = Quat.normalize(Quat.make(0.35, Vec3.make(43,542,232)));
-      const q2 = Quat.normalize(Quat.make(364, Vec3.make(475,235,323)));
-      console.log("check this: ", q1, q2, Quat.hamiltonProduct(q1, q2));
+      //const q1 = Quat.normalize(Quat.make(0.35, Vec3.make(43,542,232)));
+      //const q2 = Quat.normalize(Quat.make(364, Vec3.make(475,235,323)));
+      //console.log("check this: ", q1, q2, Quat.hamiltonProduct(q1, q2));
 
     };
 

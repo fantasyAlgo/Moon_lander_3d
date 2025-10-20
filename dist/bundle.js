@@ -111,6 +111,12 @@ function createFloorVao(gl, vertexBuffer, indexBuffer, posAttrib, normalAttrib) 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
   return vao;
 }
+function loadModel(gl, data, posAttrib, colorAttrib, normalAttrib, uvAttrib) {
+  const vbo = createBufferData(gl, data.vertices, gl.STATIC_DRAW);
+  const ibo = createStaticIndexBuffer(gl, data.indices);
+  const vao = create3dPosColorInterleavedVao(gl, vbo, ibo, posAttrib, colorAttrib, normalAttrib, uvAttrib);
+  return vao;
+}
 function makeRandomMatrix(width, height) {
   let lst = [];
   for (let i = 0; i < width * height; i++) {
@@ -320,6 +326,7 @@ var Vec3 = class _Vec3 {
     this.x = v.x;
     this.y = v.y;
     this.z = v.z;
+    this.distance = v.distance;
   }
   static normalize(v) {
     if (v.distance == 0) return v;
@@ -1128,6 +1135,7 @@ var Vec2 = class _Vec2 {
   copy(v) {
     this.x = v.x;
     this.y = v.y;
+    this.distance = v.distance;
   }
   static normalize(v) {
     if (v.distance == 0) throw new Error("v is 0, cannot normalize");
@@ -1412,6 +1420,8 @@ var PerlinFloor = class {
   testData = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   constructor(gl, perlin3d, shader, initial_pos) {
     const nChunks = 3;
+    this.WIDTH = 20;
+    this.HEIGHT = 20;
     this.shader = shader;
     const xIndxChunk = Math.floor((Math.abs(initial_pos.x) + this.WIDTH) / (this.WIDTH * 2));
     const yIndxChunk = Math.floor((Math.abs(initial_pos.z) + this.HEIGHT) / (this.HEIGHT * 2));
@@ -1447,8 +1457,11 @@ var PerlinFloor = class {
     shader.unbind(gl);
   }
   getValue(p, x, y) {
-    const i = (x / this.WIDTH + 1) * p.grid_width;
-    const j = (y / this.HEIGHT + 1) * p.grid_height;
+    const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
+    const iY = Math.floor((this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2));
+    const j = ((x - this.cChunk.x) / this.WIDTH + 1) * (p.grid_width / 2);
+    const i = ((y - this.cChunk.y) / this.HEIGHT + 1) * (p.grid_height / 2);
+    return 10 * p.get((i + iY * p.grid_height) / 50, (j + iX * p.grid_width) / 50);
   }
   updateChunk(gl, perlin3d, newChunk) {
     const dx = Math.sign(this.cChunk.x - newChunk.x);
@@ -1538,9 +1551,6 @@ var Player = class extends Shape {
   constructor(pos, scale, program, vao, numIndices, vertices, camera_dist) {
     super(pos, scale, program, vao, numIndices, vertices);
     this.camera_dist = camera_dist;
-    const q1 = Quat.normalize(Quat.make(0.35, Vec3.make(43, 542, 232)));
-    const q2 = Quat.normalize(Quat.make(364, Vec3.make(475, 235, 323)));
-    console.log("check this: ", q1, q2, Quat.hamiltonProduct(q1, q2));
   }
   update(moveVec, camera, dt) {
     const sub = Vec3.sub(Vec3.make(-moveVec.z, 0, moveVec.x), this.rotationAxis);
@@ -1623,7 +1633,7 @@ var Collision = class _Collision {
     const f = (e) => {
       floorPoints.push(Vec3.make(
         e.x,
-        pHandler.getValue(e.x, e.y),
+        pHandler.getValue(p, e.x, e.y),
         e.y
       ));
       floorPoints.push(Vec3.make(
@@ -1800,10 +1810,8 @@ var Game = class {
     gl.enable(gl.DEPTH_TEST);
     const cubeVertices = createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW);
     const tableVertices = createBufferData(gl, TABLE_VERTICES, gl.STATIC_DRAW);
-    const landerVertices = createBufferData(gl, models["lander"].vertices, gl.STATIC_DRAW);
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
     const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
-    const landerIndices = createStaticIndexBuffer(gl, models["lander"].indices);
     if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices) {
       showError(`Failed to create some buffers`);
     }
@@ -1824,11 +1832,12 @@ var Game = class {
     }
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["table"] = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.vaos["lander"] = create3dPosColorInterleavedVao(gl, landerVertices, landerIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     gl.viewport(0, 0, this.width, this.height);
     this.shapes = [];
     this.player = new Player(
-      Vec3.make(20, 5, 0),
+      Vec3.make(0, 0, 0),
       Vec3.make(0.4, 0.4, 0.4),
       this.shaders["main"],
       this.vaos["lander"],
@@ -1886,7 +1895,6 @@ var Game = class {
     this.mouseMoveVector.y *= -1;
   }
   update(gl, dt) {
-    const coll = Collision.GJK(this.light, this.player);
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
@@ -1895,6 +1903,8 @@ var Game = class {
     this.light.updateWorldData();
     this.player.updateWorldData();
     this.mouseMoveVector = Vec2.make(0, 0);
+    const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
+    console.log(coll.collided);
   }
   setShaderUniform(gl, shader, matViewProj) {
     shader.bind(gl);
@@ -2058,7 +2068,8 @@ async function getShaders() {
 async function getModels() {
   const model_source = "../models";
   const models_names = [
-    "lander"
+    "lander",
+    "sphere"
   ];
   let object = {};
   for (let i = 0; i < models_names.length; i++)

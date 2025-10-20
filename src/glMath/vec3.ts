@@ -23,6 +23,7 @@ export class Vec3 {
     this.x = v.x;
     this.y = v.y;
     this.z = v.z;
+    this.distance = v.distance;
   }
 
   static normalize(v : Vec3) : Vec3{

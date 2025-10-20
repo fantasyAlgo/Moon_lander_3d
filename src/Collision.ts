@@ -38,10 +38,11 @@ export class Collision {
     const data : Vec3[] = s1.modelData;
     const abab : Vec2[] = getFloorProjection(data);
     let floorPoints : Vec3[] = [];
+    //console.log(abab, data);
     const f = (e) => { 
       floorPoints.push(Vec3.make(
         e.x, 
-        pHandler.getValue(e.x, e.y),
+        pHandler.getValue(p, e.x, e.y),
         e.y
       ));
       floorPoints.push(Vec3.make(
@@ -52,6 +53,7 @@ export class Collision {
 
     }
     abab.forEach(f);
+    //console.log(floorPoints);
     return Collision.GJK(data, floorPoints, Vec3.make(1, 0, 0));
   }
 

@@ -1,4 +1,4 @@
-import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createStaticBufferData, createStaticIndexBuffer, makeHeightTextureFromData, makeRandomMatrix, showError } from "./helpers/glHelpers.ts";
+import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createStaticBufferData, createStaticIndexBuffer, loadModel, makeHeightTextureFromData, makeRandomMatrix, showError } from "./helpers/glHelpers.ts";
 import { ShaderProgram } from "./helpers/shaderProgram";
 import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./helpers/loadPerlinFloor.ts"
 
@@ -79,11 +79,9 @@ export class Game {
 
     const cubeVertices =  createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW); 
     const tableVertices = createBufferData(gl, TABLE_VERTICES, gl.STATIC_DRAW);
-    const landerVertices = createBufferData(gl, models["lander"].vertices, gl.STATIC_DRAW);
 
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
     const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
-    const landerIndices = createStaticIndexBuffer(gl, models["lander"].indices);
 
 
     if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices){
@@ -111,13 +109,25 @@ export class Game {
 
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["table"] = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.vaos["lander"] = create3dPosColorInterleavedVao(gl, landerVertices, landerIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
 
     gl.viewport(0, 0, this.width, this.height);
 
     this.shapes = [];
+    /*
+    for (let i = -20; i < 20; i++) {
+      for (let j = -20; j < 20; j++) {
+        this.shapes.push(new Shape(
+          Vec3.make(i, this.perlinFloor.getValue(this.perlin3d, i, j), j),
+          Vec3.make(0.2, 0.2, 0.2), this.shaders["main"], this.vaos["sphere"], models["sphere"].indices.length
+        ));
+      }
+    }*/
+
+
     this.player = new Player(
-      Vec3.make(20, 5.0, 0), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 
+      Vec3.make(0, 0, 0), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 
       models["lander"].vertices, 4.0,
     );
 
@@ -174,8 +184,6 @@ export class Game {
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
-    const coll = Collision.GJK(this.light, this.player);
-    //console.log(coll, coll.collided);
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
@@ -187,6 +195,9 @@ export class Game {
     this.light.updateWorldData();
     this.player.updateWorldData();
     this.mouseMoveVector = Vec2.make(0,0);
+
+    const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
+    console.log(coll.collided)
   }
 
 

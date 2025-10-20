@@ -21,6 +21,7 @@ export class Vec2 {
   copy(v : Vec2){
     this.x = v.x;
     this.y = v.y;
+    this.distance = v.distance;
   }
 
   static normalize(v : Vec2) : Vec2{

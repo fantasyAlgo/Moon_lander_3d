@@ -3,7 +3,7 @@ import { Vec2 } from "../glMath/vec2.ts"
 import { CoupledVertex, webglVerticesFromCoupledVertices } from "./CoupledVertex.ts";
 
 
-class ModelData {
+export class ModelData {
   constructor(
     public vertices : Float32Array,
     public indices : Uint16Array,

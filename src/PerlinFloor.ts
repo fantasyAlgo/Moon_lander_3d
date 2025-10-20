@@ -41,6 +41,8 @@ export class PerlinFloor {
 
   constructor(gl : WebGL2RenderingContext, perlin3d : Perlin3d, shader : ShaderProgram, initial_pos : Vec3){ 
     const nChunks = 3;
+    this.WIDTH = 20;
+    this.HEIGHT = 20;
     this.shader = shader;
 
     const xIndxChunk = Math.floor((Math.abs(initial_pos.x)+this.WIDTH)/(this.WIDTH*2.0));
@@ -80,16 +82,20 @@ export class PerlinFloor {
         new Shape(Vec3.make(pos.x*this.WIDTH*2.0, 0 , pos.y*this.HEIGHT*2.0), Vec3.make(this.WIDTH, 1, this.HEIGHT), shader, vao, floorIndicesData.length)
       );
    }
+
    this.pendingUpdateSwaps = [];
    console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
-
    shader.unbind(gl);
   }
 
   getValue(p : Perlin3d, x : number, y : number) : number{
-    const i : number = (x/this.WIDTH+1)*p.grid_width;
-    const j : number = (y/this.HEIGHT+1)*p.grid_height;
+    const iX = Math.floor((this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0));
+    const iY = Math.floor((this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0));
 
+    const j : number = ((x-this.cChunk.x)/this.WIDTH + 1)*(p.grid_width/2.0);
+    const i : number = ((y-this.cChunk.y)/this.HEIGHT + 1)*(p.grid_height/2.0);
+    //console.log(x, y, i, j)
+    return 10.0*p.get((i+iY*p.grid_height)/50.0, (j+iX*p.grid_width)/50.0);
   }
 
   updateChunk(gl : WebGL2RenderingContext, perlin3d : Perlin3d, newChunk : Vec2){

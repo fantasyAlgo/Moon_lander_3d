@@ -95,6 +95,7 @@ export function getFloorVertices(perlin3d : Perlin3d, chunk : Vec2) : Float32Arr
       const height = 10.0*perlin3d.get((i + chunk.y*H)/50.0, (j + chunk.x*W)/50.0);
       const rValue = Math.random()/40.0;
       const pos : Vec3 = Vec3.make(2.0*j/H - 1.0, height, 2.0*i/W - 1.0);
+      //console.log(i, j, Vec3.make(pos.x*20, pos.y, 20*pos.z));
       const vertex : CoupledFloorVertex = new CoupledFloorVertex(pos, Vec3.make(0, rValue, 0));
       lst.push(vertex);
     }

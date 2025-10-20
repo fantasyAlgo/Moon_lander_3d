@@ -1,3 +1,5 @@
+import { ModelData } from "../helpers/objLoader.ts"
+
 export function showError(errorText: string) {
   console.error(errorText);
   const errorBoxDiv = document.getElementById('error-box');
@@ -99,6 +101,18 @@ export function createFloorVao(gl : WebGL2RenderingContext,
 
   gl.bindVertexArray(null);
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); 
+  return vao;
+}
+
+
+
+export function loadModel (gl : WebGL2RenderingContext, 
+  data : ModelData,
+  posAttrib : number, colorAttrib : number, normalAttrib : number, uvAttrib : number
+) : WebGLVertexArrayObject {
+  const vbo = createBufferData(gl, data.vertices, gl.STATIC_DRAW);
+  const ibo = createStaticIndexBuffer(gl, data.indices);
+  const vao : WebGLVertexArrayObject  = create3dPosColorInterleavedVao(gl, vbo, ibo, posAttrib, colorAttrib, normalAttrib, uvAttrib);
   return vao;
 }
 
