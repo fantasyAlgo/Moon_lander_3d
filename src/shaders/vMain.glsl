@@ -21,7 +21,8 @@ void main(){
   gl_Position = matViewProj*model_pos;
   
   vOutColor = vColor;
-  vOutNormal = vNormal;
+  vec4 weirdN = vec4(vNormal, 1.0f)*matWorld - vec4(vec3(0.0f), 1.0f)*matWorld ;
+  vOutNormal = normalize(weirdN.xyz);
   vOutPos = model_pos.xyz;
   vOutUV = vUV;
 }

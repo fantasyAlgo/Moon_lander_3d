@@ -73,14 +73,15 @@ export const CUBE_INDICES = new Uint16Array([
   20, 22, 23, // left
 ]);
 
-export const TABLE_VERTICES = new Float32Array([
+export const PLANE_VERTICES = new Float32Array([
   // Top face
-  -10.0, 0.0, -10.0,   0.2, 0.2, 0.2,  0.0, 1.0, 0.0, 0.0, 0.0,  
-  -10.0, 0.0, 10.0,    0.2, 0.2, 0.2,  0.0, 1.0, 0.0, 0.0, 1.0,
-  10.0, 0.0, 10.0,     0.2, 0.2, 0.2,  0.0, 1.0, 0.0, 1.0, 1.0,
-  10.0, 0.0, -10.0,    0.2, 0.2, 0.2,  0.0, 1.0, 0.0, 1.0, 1.0,
+  -1.0, 0.0, -1.0,  
+  -1.0, 0.0, 1.0, 
+  1.0, 0.0, 1.0,  
+  1.0, 0.0, -1.0, 
 ]);
-export const TABLE_INDICES = new Uint16Array([
+
+export const PLANE_INDICES = new Uint16Array([
   0, 1, 2,
   0, 2, 3, // top
 ]);

@@ -26,6 +26,27 @@ export class Vec3 {
     this.distance = v.distance;
   }
 
+  addScalar(n : number){
+    this.x += n;
+    this.y += n;
+    this.z += n;
+  }
+  multScalar(n : number){
+    this.x *= n;
+    this.y *= n;
+    this.z *= n;
+  }
+  divideScalar(n : number){
+    this.x /= n;
+    this.y /= n;
+    this.z /= n;
+  }
+
+
+
+  static applyFunc(v : Vec3, f){
+    return Vec3.make(f(v.x), f(v.y), f(v.z));
+  }
   static normalize(v : Vec3) : Vec3{
     if (v.distance == 0) return v;
     return new Vec3(v.x/v.distance, v.y/v.distance, v.z/v.distance);
@@ -43,6 +64,9 @@ export class Vec3 {
   static add(v1 : Vec3, v2 : Vec3) : Vec3{
     return new Vec3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
   }
+
+
+
   static sub(v1 : Vec3, v2 : Vec3) : Vec3{
     return new Vec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
   }

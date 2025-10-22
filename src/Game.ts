@@ -1,6 +1,6 @@
 import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createStaticBufferData, createStaticIndexBuffer, loadModel, makeHeightTextureFromData, makeRandomMatrix, showError } from "./helpers/glHelpers.ts";
 import { ShaderProgram } from "./helpers/shaderProgram";
-import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./helpers/loadPerlinFloor.ts"
+import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, PLANE_INDICES, PLANE_VERTICES, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./helpers/loadPerlinFloor.ts"
 
 import {Mat4x4 } from "./glMath/mat4x4.ts"
 import {Vec3 } from "./glMath/vec3.ts"
@@ -15,6 +15,7 @@ import { PerlinFloor } from "./PerlinFloor.ts";
 import { Player } from "./Player.ts";
 import { updateEntitiesPhysics } from "./Physics.ts";
 import { Collision } from "./Collision.ts";
+import { ParticleSystem } from "./ParticleSystem.ts";
 
 
 
@@ -22,6 +23,7 @@ import { Collision } from "./Collision.ts";
 
 
 export class Game {
+  time : number = 0;
   isRunning : boolean = true;
   cubeVertices: WebGLBuffer;
   tableVertices : WebGLBuffer;
@@ -58,6 +60,7 @@ export class Game {
   noiseTexture : WebGLTexture;
 
   player : Player;
+  pSystem : ParticleSystem;
 
   constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object){
     this.width = width;
@@ -78,19 +81,16 @@ export class Game {
     gl.enable(gl.DEPTH_TEST);
 
     const cubeVertices =  createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW); 
-    const tableVertices = createBufferData(gl, TABLE_VERTICES, gl.STATIC_DRAW);
+    const planeVertices = createBufferData(gl, PLANE_VERTICES, gl.STATIC_DRAW);
 
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
-    const tableIndices = createStaticIndexBuffer(gl, TABLE_INDICES);
+    const planeIndices = createStaticIndexBuffer(gl, PLANE_INDICES);
 
-
-    if (!cubeVertices || !tableIndices || !tableVertices || !cubeIndices){
-      showError(`Failed to create some buffers`);
-    }
 
     this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
     this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
     this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
+    this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
 
     this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
     this.shaders["main"].bind(gl);
@@ -108,7 +108,6 @@ export class Game {
     }
 
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.vaos["table"] = create3dPosColorInterleavedVao(gl, tableVertices, tableIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
 
@@ -135,8 +134,11 @@ export class Game {
       Vec3.make(4, 20.0, 2), Vec3.make(1.0, 1.0, 1.0), this.shaders["light"], 
       this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5), CUBE_VERTICES, 
     );
-
+    this.shaders["main"].bind(gl);
     gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
+
+    this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 10000);
+
   }
 
   handleKeyDown(e : KeyboardEvent){
@@ -184,6 +186,11 @@ export class Game {
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
+    this.time += dt;
+    //if (Math.floor(this.time)%100 == 0)
+    //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
+    if (this.moveVector.y > 0)
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), this.time, 0.1, 0.4);
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
@@ -197,7 +204,9 @@ export class Game {
     this.mouseMoveVector = Vec2.make(0,0);
 
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
-    console.log(coll.collided)
+    console.log(coll.collided);
+    this.pSystem.update(gl, this.time);
+
   }
 
 
@@ -221,18 +230,22 @@ export class Game {
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
     this.setShaderUniform(gl, this.shaders["main"], matViewProj);
     this.setShaderUniform(gl, this.shaders["floor"], matViewProj);
+    this.setShaderUniform(gl, this.shaders["particle"], matViewProj);
 
     this.shaders["light"].bind(gl);
     gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl,"matViewProj"), false, matViewProj.values);
     gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    this.shaders["light"].unbind(gl);
 
     this.shapes.forEach(element => {
       element.draw(gl);
     });
 
+
     this.light.draw(gl);
     this.perlinFloor.draw(gl);
     this.player.draw(gl);
+    this.pSystem.draw(gl);
     
     gl.finish();
     this.perlinFloor.updateSwaps(gl);
@@ -243,7 +256,6 @@ export class Game {
       throw new Error("opengl said something went wrong");
     }
 
-    this.shaders["light"].unbind(gl);
   }
 
 }

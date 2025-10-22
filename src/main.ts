@@ -52,7 +52,7 @@ async function getShaders(){
     const shader_source = "src/shaders";
 
     const shader_names = [
-      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor",
+      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor", "fParticle", "vParticle"
     ]; 
 
     let object = {};
