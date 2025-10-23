@@ -21,7 +21,7 @@ out vec2 vOutUV;
 out vec2 vRelative;
 void main(){
   float dt = 0.1f*(cTime - startTime);
-  float timeScale = 0.05f*dt > 1.0f ? 0.0 : 1.0f-0.05f*dt;
+  float timeScale = 0.075f*dt > 1.0f ? 0.0 : 1.0f-0.075f*dt;
   vec3 oPos = initialPos + 0.5f*dt*vDir;
   vec4 model_pos = vec4(oPos, 0.0) + vec4(0.080f*timeScale*vPos, 1.0);
   float noise_height = vUV.x;

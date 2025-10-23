@@ -16,6 +16,7 @@ import { Player } from "./Player.ts";
 import { updateEntitiesPhysics } from "./Physics.ts";
 import { Collision } from "./Collision.ts";
 import { ParticleSystem } from "./ParticleSystem.ts";
+import { AsteroidHandler } from "./Asteroids.ts";
 
 
 
@@ -61,6 +62,7 @@ export class Game {
 
   player : Player;
   pSystem : ParticleSystem;
+  aSystem : AsteroidHandler;
 
   constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object){
     this.width = width;
@@ -138,6 +140,7 @@ export class Game {
     gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
 
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 10000);
+    this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
 
   }
 
@@ -191,12 +194,17 @@ export class Game {
     //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), this.time, 0.1, 0.4);
+    if (Math.random() > 0.993){
+      this.aSystem.add(Vec3.make(this.player.pos.x, 100, this.player.pos.z));
+    }
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    updateEntitiesPhysics([this.player], dt);
+    this.aSystem.update(this.pSystem, this.time, dt);
+    //updateEntitiesPhysics([this.player], dt);
+    updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
 
 
     this.light.updateWorldData();
@@ -204,7 +212,10 @@ export class Game {
     this.mouseMoveVector = Vec2.make(0,0);
 
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
-    console.log(coll.collided);
+    if (coll.collided){
+      this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 0.001;
+    }
+
     this.pSystem.update(gl, this.time);
 
   }
@@ -224,7 +235,7 @@ export class Game {
 
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    //gl.enable(gl.CULL_FACE);
+    gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
@@ -246,6 +257,7 @@ export class Game {
     this.perlinFloor.draw(gl);
     this.player.draw(gl);
     this.pSystem.draw(gl);
+    this.aSystem.draw(gl);
     
     gl.finish();
     this.perlinFloor.updateSwaps(gl);

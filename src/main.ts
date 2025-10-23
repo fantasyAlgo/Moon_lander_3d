@@ -35,11 +35,12 @@ function initGame(shaders : Object, models : Object){
   let dt : number;
 
   function step(){
+    if (!gl) return;
+
     const now = performance.now();
     dt = (now-lastTime)/5;
     lastTime = now;
 
-    if (!gl) return;
     game.update(gl, dt);
     game.draw(gl);
     if (game.isRunning)

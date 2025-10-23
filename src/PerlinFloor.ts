@@ -11,7 +11,8 @@ class QueueChanges{
   constructor(
     public from : number,
     public to : number,
-    public chunkI : Vec2
+    public chunkI : Vec2,
+    public dir : boolean,
   ){}
 };
 class PendingUpdateSwap {
@@ -19,6 +20,7 @@ class PendingUpdateSwap {
     public from : number,
     public to : number,
     public values: Float32Array,
+    public dir : boolean,
   ){}
 }
 
@@ -32,17 +34,19 @@ export class PerlinFloor {
   WIDTH : number =  20;
   HEIGHT : number = 20;
   cChunk : Vec2;
+  nChunks : number;
 
   queueChanges : QueueChanges[] = [];
   pendingUpdateSwaps : PendingUpdateSwap[] = [];
 
-  testData : number[] = [1,2,3,4,5,6,7,8,9];
-
+  testData : number[] = [];
 
   constructor(gl : WebGL2RenderingContext, perlin3d : Perlin3d, shader : ShaderProgram, initial_pos : Vec3){ 
-    const nChunks = 3;
-    this.WIDTH = 20;
-    this.HEIGHT = 20;
+    const nChunks = 5;
+    this.nChunks = nChunks;
+    this.testData = Array.from({ length: nChunks }, (_, i) => i + 1);
+    this.WIDTH = 50;
+    this.HEIGHT = 50;
     this.shader = shader;
 
     const xIndxChunk = Math.floor((Math.abs(initial_pos.x)+this.WIDTH)/(this.WIDTH*2.0));
@@ -70,7 +74,8 @@ export class PerlinFloor {
 
 
     for (let i = 0; i < nChunks*nChunks; i++){
-      const pos : Vec2 = Vec2.make(Math.floor(i/nChunks) - 1, i%nChunks - 1);
+      const offset = Math.floor(this.nChunks/2.0);
+      const pos : Vec2 = Vec2.make(Math.floor(i/nChunks) - offset, i%nChunks - offset);
       const iX = Math.floor((this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0));
       //const pos : Vec2 = Vec2.make(i%nChunks - 1, Math.floor(i/nChunks)-1);
@@ -84,7 +89,7 @@ export class PerlinFloor {
    }
 
    this.pendingUpdateSwaps = [];
-   console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
+   //console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
    shader.unbind(gl);
   }
 
@@ -105,26 +110,37 @@ export class PerlinFloor {
     const iX = (this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0);
     const iY = (this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0);
     const chunk : Vec2 = Vec2.make(iX, iY);
-    //console.log("ds: ", dx, dy);
+    console.log("ds: ", dx, dy);
     if (dy < 0){
-      this.queueChanges.push(new QueueChanges(0, 2, chunk));
-      this.queueChanges.push(new QueueChanges(3, 5, chunk));
-      this.queueChanges.push(new QueueChanges(6, 8, chunk));
+      //this.queueChanges.push(new QueueChanges(0, 2, chunk, !true));
+      //this.queueChanges.push(new QueueChanges(3, 5, chunk, !true));
+      //this.queueChanges.push(new QueueChanges(6, 8, chunk, !true));
+      for (let i = 0; i < this.nChunks*this.nChunks; i+=this.nChunks)
+        this.queueChanges.push(new QueueChanges(i, i+this.nChunks-1, chunk, false));
     }
     if (dy > 0){
-      this.queueChanges.push(new QueueChanges(2, 0, chunk));
-      this.queueChanges.push(new QueueChanges(5, 3, chunk));
-      this.queueChanges.push(new QueueChanges(8, 6, chunk));
+      //this.queueChanges.push(new QueueChanges(2, 0, chunk, !true));
+      //this.queueChanges.push(new QueueChanges(5, 3, chunk, !true));
+      //this.queueChanges.push(new QueueChanges(8, 6, chunk, !true));
+      for (let i = 0; i < this.nChunks*this.nChunks; i+=this.nChunks)
+        this.queueChanges.push(new QueueChanges(i+this.nChunks-1, i, chunk, false));
+      //console.log("q: ", this.queueChanges);
     }
     if (dx < 0){
-      this.queueChanges.push(new QueueChanges(0, 6, chunk));
-      this.queueChanges.push(new QueueChanges(1, 7, chunk));
-      this.queueChanges.push(new QueueChanges(2, 8, chunk));
+      //this.queueChanges.push(new QueueChanges(0, 6, chunk, !false));
+      //this.queueChanges.push(new QueueChanges(1, 7, chunk, !false));
+      //this.queueChanges.push(new QueueChanges(2, 8, chunk, !false));
+      const start = this.nChunks*(this.nChunks-1);
+      for (let i = 0; i < this.nChunks; i+=1)
+        this.queueChanges.push(new QueueChanges(i, start+i, chunk, true));
     }
     if (dx > 0){
-      this.queueChanges.push(new QueueChanges(6, 0, chunk));
-      this.queueChanges.push(new QueueChanges(7, 1, chunk));
-      this.queueChanges.push(new QueueChanges(8, 2, chunk));
+      //this.queueChanges.push(new QueueChanges(6, 0, chunk, !false));
+      //this.queueChanges.push(new QueueChanges(7, 1, chunk, !false));
+      //this.queueChanges.push(new QueueChanges(8, 2, chunk, !false));
+      const start = this.nChunks*(this.nChunks-1);
+      for (let i = 0; i < this.nChunks; i+=1)
+        this.queueChanges.push(new QueueChanges(start+i, i, chunk, true));
     }
     this.cChunk = newChunk;
   }
@@ -137,14 +153,19 @@ export class PerlinFloor {
 
   updateSwaps(gl : WebGL2RenderingContext){
     if (this.queueChanges.length > 0) return;
-    for (const {from, to, values} of this.pendingUpdateSwaps) {
+    for (const {from, to, values, dir} of this.pendingUpdateSwaps) {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO[from]);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
 
       gl.bindVertexArray(null);
-      const mid = Math.floor((from + to)/2);
+      //const mid = Math.floor((from + to)/2);
       this.swap(from, to);
-      this.swap(from, mid); 
+      const sign = (from < to);
+      const toAdd = -Math.sign(from-to)*(dir ? this.nChunks : 1);
+      if (sign) for (let i = from; i < to-toAdd; i += toAdd) this.swap(i, i+toAdd); 
+      else for (let i = from; i > to-toAdd; i += toAdd) this.swap(i, i+toAdd); 
+
+
       const error = gl.getError();
       if (error !== gl.NO_ERROR) {
         console.error("WebGL Error in swaps:", error);
@@ -168,10 +189,11 @@ export class PerlinFloor {
       const iX = Math.floor((this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0));
       //console.log("iX, iY: ", iX, iY);
-      const chunkPos = Vec2.make(iX + Math.floor(el.to/3)-1, iY + el.to%3 - 1);
+      const chunkPos = Vec2.make(iX + Math.floor(el.to/this.nChunks)-Math.floor(this.nChunks/2), iY + el.to%this.nChunks - Math.floor(this.nChunks/2));
+      //const chunkPos = Vec2.make(iX + Math.floor(el.to/3)-1, iY + el.to%3 - 1);
       const new_values = getFloorVertices(perlin3d,  chunkPos);
 
-      this.pendingUpdateSwaps.push(new PendingUpdateSwap(el.from, el.to, new_values))
+      this.pendingUpdateSwaps.push(new PendingUpdateSwap(el.from, el.to, new_values, el.dir));
 
 
       const error = gl.getError();

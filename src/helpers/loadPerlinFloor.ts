@@ -114,8 +114,9 @@ export function getFloorVertices(perlin3d : Perlin3d, chunk : Vec2) : Float32Arr
   }
 
   return webglVerticesFromCoupledFloorVertices(lst);
-
 }
+
+
 export function getFloorIndices(grid_width : number, grid_height : number) : Uint16Array {
   const indices : number[] = [];
   const W : number = grid_width;
@@ -123,15 +124,15 @@ export function getFloorIndices(grid_width : number, grid_height : number) : Uin
   for (let i = H; i >= 0; i--) {
     for (let j = 0; j < W; j++) {
       if (i-1 != j){
-        indices.push(i*H + j);
-        indices.push((i+1)*H + j+1);
         indices.push(i*H + j+1);
+        indices.push((i+1)*H + j+1);
+        indices.push(i*H + j);
       }
 
       if (i != j){
-        indices.push(i*H + j)
-        indices.push((i+1)*H + j)
         indices.push((i+1)*H + j+1)
+        indices.push((i+1)*H + j)
+        indices.push(i*H + j)
       }
     }
   }

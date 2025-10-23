@@ -8,7 +8,7 @@ export class Perlin3d {
   grid_height : number;
   octaves : Octave[];
 
-  constructor(grid_width : number, grid_height : number, n_octaves : number = 2){
+  constructor(grid_width : number, grid_height : number, n_octaves : number = 3){
     this.grid_height = grid_height;
     this.grid_width = grid_width;
     this.octaves = [];
@@ -29,7 +29,7 @@ export class Perlin3d {
       copyY *= 2.0;
       value += this.octaves[i].get(copyX, copyY);
     }
-    return value/this.octaves.length;
+    return value;///this.octaves.length;
   }
 }
 

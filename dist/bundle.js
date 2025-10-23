@@ -806,14 +806,14 @@ function getFloorIndices(grid_width, grid_height) {
   for (let i = H; i >= 0; i--) {
     for (let j = 0; j < W; j++) {
       if (i - 1 != j) {
-        indices.push(i * H + j);
-        indices.push((i + 1) * H + j + 1);
         indices.push(i * H + j + 1);
+        indices.push((i + 1) * H + j + 1);
+        indices.push(i * H + j);
       }
       if (i != j) {
-        indices.push(i * H + j);
-        indices.push((i + 1) * H + j);
         indices.push((i + 1) * H + j + 1);
+        indices.push((i + 1) * H + j);
+        indices.push(i * H + j);
       }
     }
   }
@@ -1316,7 +1316,7 @@ var Perlin3d = class {
   grid_width;
   grid_height;
   octaves;
-  constructor(grid_width, grid_height, n_octaves = 2) {
+  constructor(grid_width, grid_height, n_octaves = 3) {
     this.grid_height = grid_height;
     this.grid_width = grid_width;
     this.octaves = [];
@@ -1337,7 +1337,7 @@ var Perlin3d = class {
       copyY *= 2;
       value += this.octaves[i].get(copyX, copyY);
     }
-    return value / this.octaves.length;
+    return value;
   }
 };
 var Octave = class {
@@ -1379,17 +1379,19 @@ var Octave = class {
 
 // src/PerlinFloor.ts
 var QueueChanges = class {
-  constructor(from, to, chunkI) {
+  constructor(from, to, chunkI, dir) {
     this.from = from;
     this.to = to;
     this.chunkI = chunkI;
+    this.dir = dir;
   }
 };
 var PendingUpdateSwap = class {
-  constructor(from, to, values) {
+  constructor(from, to, values, dir) {
     this.from = from;
     this.to = to;
     this.values = values;
+    this.dir = dir;
   }
 };
 var PerlinFloor = class {
@@ -1401,13 +1403,16 @@ var PerlinFloor = class {
   WIDTH = 20;
   HEIGHT = 20;
   cChunk;
+  nChunks;
   queueChanges = [];
   pendingUpdateSwaps = [];
-  testData = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  testData = [];
   constructor(gl, perlin3d, shader, initial_pos) {
-    const nChunks = 3;
-    this.WIDTH = 20;
-    this.HEIGHT = 20;
+    const nChunks = 5;
+    this.nChunks = nChunks;
+    this.testData = Array.from({ length: nChunks }, (_, i) => i + 1);
+    this.WIDTH = 50;
+    this.HEIGHT = 50;
     this.shader = shader;
     const xIndxChunk = Math.floor((Math.abs(initial_pos.x) + this.WIDTH) / (this.WIDTH * 2));
     const yIndxChunk = Math.floor((Math.abs(initial_pos.z) + this.HEIGHT) / (this.HEIGHT * 2));
@@ -1427,7 +1432,8 @@ var PerlinFloor = class {
     gl.uniform1i(shader.getUniform(gl, "u_noiseTex"), 0);
     gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
     for (let i = 0; i < nChunks * nChunks; i++) {
-      const pos = Vec2.make(Math.floor(i / nChunks) - 1, i % nChunks - 1);
+      const offset = Math.floor(this.nChunks / 2);
+      const pos = Vec2.make(Math.floor(i / nChunks) - offset, i % nChunks - offset);
       const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2));
       const floorVerticesData = getFloorVertices(perlin3d, Vec2.add(pos, Vec2.make(iX, iY)));
@@ -1439,7 +1445,6 @@ var PerlinFloor = class {
       );
     }
     this.pendingUpdateSwaps = [];
-    console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
     shader.unbind(gl);
   }
   getValue(p, x, y) {
@@ -1455,25 +1460,24 @@ var PerlinFloor = class {
     const iX = (this.cChunk.x - this.WIDTH) / (this.WIDTH * 2);
     const iY = (this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2);
     const chunk = Vec2.make(iX, iY);
+    console.log("ds: ", dx, dy);
     if (dy < 0) {
-      this.queueChanges.push(new QueueChanges(0, 2, chunk));
-      this.queueChanges.push(new QueueChanges(3, 5, chunk));
-      this.queueChanges.push(new QueueChanges(6, 8, chunk));
+      for (let i = 0; i < this.nChunks * this.nChunks; i += this.nChunks)
+        this.queueChanges.push(new QueueChanges(i, i + this.nChunks - 1, chunk, false));
     }
     if (dy > 0) {
-      this.queueChanges.push(new QueueChanges(2, 0, chunk));
-      this.queueChanges.push(new QueueChanges(5, 3, chunk));
-      this.queueChanges.push(new QueueChanges(8, 6, chunk));
+      for (let i = 0; i < this.nChunks * this.nChunks; i += this.nChunks)
+        this.queueChanges.push(new QueueChanges(i + this.nChunks - 1, i, chunk, false));
     }
     if (dx < 0) {
-      this.queueChanges.push(new QueueChanges(0, 6, chunk));
-      this.queueChanges.push(new QueueChanges(1, 7, chunk));
-      this.queueChanges.push(new QueueChanges(2, 8, chunk));
+      const start = this.nChunks * (this.nChunks - 1);
+      for (let i = 0; i < this.nChunks; i += 1)
+        this.queueChanges.push(new QueueChanges(i, start + i, chunk, true));
     }
     if (dx > 0) {
-      this.queueChanges.push(new QueueChanges(6, 0, chunk));
-      this.queueChanges.push(new QueueChanges(7, 1, chunk));
-      this.queueChanges.push(new QueueChanges(8, 2, chunk));
+      const start = this.nChunks * (this.nChunks - 1);
+      for (let i = 0; i < this.nChunks; i += 1)
+        this.queueChanges.push(new QueueChanges(start + i, i, chunk, true));
     }
     this.cChunk = newChunk;
   }
@@ -1484,13 +1488,15 @@ var PerlinFloor = class {
   }
   updateSwaps(gl) {
     if (this.queueChanges.length > 0) return;
-    for (const { from, to, values } of this.pendingUpdateSwaps) {
+    for (const { from, to, values, dir } of this.pendingUpdateSwaps) {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO[from]);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
       gl.bindVertexArray(null);
-      const mid = Math.floor((from + to) / 2);
       this.swap(from, to);
-      this.swap(from, mid);
+      const sign = from < to;
+      const toAdd = -Math.sign(from - to) * (dir ? this.nChunks : 1);
+      if (sign) for (let i = from; i < to - toAdd; i += toAdd) this.swap(i, i + toAdd);
+      else for (let i = from; i > to - toAdd; i += toAdd) this.swap(i, i + toAdd);
       const error = gl.getError();
       if (error !== gl.NO_ERROR) {
         console.error("WebGL Error in swaps:", error);
@@ -1506,9 +1512,9 @@ var PerlinFloor = class {
       if (el == void 0) return;
       const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2));
-      const chunkPos = Vec2.make(iX + Math.floor(el.to / 3) - 1, iY + el.to % 3 - 1);
+      const chunkPos = Vec2.make(iX + Math.floor(el.to / this.nChunks) - Math.floor(this.nChunks / 2), iY + el.to % this.nChunks - Math.floor(this.nChunks / 2));
       const new_values = getFloorVertices(perlin3d, chunkPos);
-      this.pendingUpdateSwaps.push(new PendingUpdateSwap(el.from, el.to, new_values));
+      this.pendingUpdateSwaps.push(new PendingUpdateSwap(el.from, el.to, new_values, el.dir));
       const error = gl.getError();
       if (error !== gl.NO_ERROR) {
         console.error("WebGL Error in update:", error);
@@ -1890,187 +1896,6 @@ var ParticleSystem = class {
   }
 };
 
-// src/Game.ts
-var Game = class {
-  time = 0;
-  isRunning = true;
-  cubeVertices;
-  tableVertices;
-  cubeIndices;
-  tableIndices;
-  floorBuffer;
-  chunk_pos;
-  vaos;
-  shaders;
-  perlinFloor;
-  total_time;
-  shapes;
-  width;
-  height;
-  moveVector;
-  mouseMoveVector;
-  lastMousePos;
-  isShiftPressed;
-  light;
-  Fov;
-  pCamera;
-  perlin3d;
-  noiseTexture;
-  player;
-  pSystem;
-  constructor(gl, width, height, shaders, models) {
-    this.width = width;
-    this.height = height;
-    this.total_time = 0;
-    this.moveVector = Vec3.make(0, 0, 0);
-    this.mouseMoveVector = Vec2.make(0, 0);
-    this.lastMousePos = Vec2.make(0, 0);
-    this.perlin3d = new Perlin3d(64, 64);
-    this.vaos = {};
-    this.shaders = {};
-    this.chunk_pos = Vec2.make(0, 0);
-    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 100);
-    gl.clearColor(0.08, 0.08, 0.08, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    const cubeVertices = createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW);
-    const planeVertices = createBufferData(gl, PLANE_VERTICES, gl.STATIC_DRAW);
-    const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
-    const planeIndices = createStaticIndexBuffer(gl, PLANE_INDICES);
-    this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
-    this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
-    this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
-    this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
-    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
-    this.shaders["main"].bind(gl);
-    console.log("error: ", gl.getError());
-    const vPosLoc = this.shaders["main"].getAttrib(gl, "vPos");
-    const vColorLoc = this.shaders["main"].getAttrib(gl, "vColor");
-    const vNormalLoc = this.shaders["main"].getAttrib(gl, "vNormal");
-    const vUVLoc = this.shaders["main"].getAttrib(gl, "vUV");
-    if (vPosLoc < 0 || vColorLoc < 0) {
-      if (vPosLoc < 0) showError("vPos wasnt found");
-      if (vColorLoc < 0) showError("vColor wasnt found");
-      return;
-    }
-    this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    gl.viewport(0, 0, this.width, this.height);
-    this.shapes = [];
-    this.player = new Player(
-      Vec3.make(0, 0, 0),
-      Vec3.make(0.4, 0.4, 0.4),
-      this.shaders["main"],
-      this.vaos["lander"],
-      models["lander"].indices.length,
-      models["lander"].vertices,
-      4
-    );
-    this.light = new Light(
-      Vec3.make(4, 20, 2),
-      Vec3.make(1, 1, 1),
-      this.shaders["light"],
-      this.vaos["cube"],
-      CUBE_INDICES.length,
-      Vec3.make(5, 5, 5),
-      CUBE_VERTICES
-    );
-    this.shaders["main"].bind(gl);
-    gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
-    this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e4);
-  }
-  handleKeyDown(e) {
-    if (e.key == "o") {
-      this.isRunning = false;
-      throw new Error("Stopped the program");
-    }
-    if (e.key == "n")
-      this.isShiftPressed = true;
-    if (e.key == "w")
-      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
-    if (e.key == "a")
-      this.moveVector = Vec3.add(this.moveVector, Vec3.make(-1, 0, 0));
-    if (e.key == "d")
-      this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
-    if (e.key == "s")
-      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
-    if (e.code == "Space")
-      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
-    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
-  }
-  handleKeyUp(e) {
-    if (e.key == "n")
-      this.isShiftPressed = false;
-    if (e.key == "w")
-      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, -1));
-    if (e.key == "a")
-      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(-1, 0, 0));
-    if (e.key == "d")
-      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
-    if (e.key == "s")
-      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
-    if (e.code == "Space")
-      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
-    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
-  }
-  handleMouseMovement(e) {
-    this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
-    this.mouseMoveVector.y *= -1;
-  }
-  update(gl, dt) {
-    this.time += dt;
-    if (this.moveVector.y > 0)
-      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), this.time, 0.1, 0.4);
-    this.total_time += dt;
-    this.player.update(this.moveVector, this.pCamera, dt);
-    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
-    this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    updateEntitiesPhysics([this.player], dt);
-    this.light.updateWorldData();
-    this.player.updateWorldData();
-    this.mouseMoveVector = Vec2.make(0, 0);
-    const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
-    console.log(coll.collided);
-    this.pSystem.update(gl, this.time);
-  }
-  setShaderUniform(gl, shader, matViewProj) {
-    shader.bind(gl);
-    gl.uniformMatrix4fv(shader.getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(shader.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
-    gl.uniform3f(shader.getUniform(gl, "lightPos"), this.light.pos.x, this.light.pos.y, this.light.pos.z);
-    gl.uniform3f(shader.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
-    shader.unbind(gl);
-  }
-  draw(gl) {
-    gl.clearColor(0.08, 0.08, 0.08, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.DEPTH_TEST);
-    const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
-    this.setShaderUniform(gl, this.shaders["main"], matViewProj);
-    this.setShaderUniform(gl, this.shaders["floor"], matViewProj);
-    this.setShaderUniform(gl, this.shaders["particle"], matViewProj);
-    this.shaders["light"].bind(gl);
-    gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
-    this.shaders["light"].unbind(gl);
-    this.shapes.forEach((element) => {
-      element.draw(gl);
-    });
-    this.light.draw(gl);
-    this.perlinFloor.draw(gl);
-    this.player.draw(gl);
-    this.pSystem.draw(gl);
-    gl.finish();
-    this.perlinFloor.updateSwaps(gl);
-    const error = gl.getError();
-    if (error !== gl.NO_ERROR) {
-      console.error("WebGL Error:", error);
-      throw new Error("opengl said something went wrong");
-    }
-  }
-};
-
 // src/helpers/objLoader.ts
 var ModelData = class {
   constructor(vertices, indices) {
@@ -2143,6 +1968,356 @@ async function loadObj(url) {
   return new ModelData(new Float32Array(webglVerticesFromCoupledVertices(lst)), new Uint16Array(indices));
 }
 
+// src/helpers/ConvexHull.ts
+var Face = class {
+  constructor(a, b, c, i, j, k) {
+    this.a = a;
+    this.b = b;
+    this.c = c;
+    this.i = i;
+    this.j = j;
+    this.k = k;
+    this.n = Vec3.cross(Vec3.sub(b, a), Vec3.sub(c, a));
+  }
+  n;
+};
+function convexHull(vertices) {
+  if (vertices.length < 3) throw new Error("Vertices length is less than 3");
+  let faces = [];
+  let dead = Array.from({ length: vertices.length }, () => Array(vertices.length).fill(true));
+  const add_face = (a, b, c) => {
+    faces.push(new Face(vertices[a], vertices[b], vertices[c], a, b, c));
+    dead[a][b] = false;
+    dead[b][c] = false;
+    dead[c][a] = false;
+  };
+  add_face(0, 1, 2);
+  add_face(0, 2, 1);
+  for (let i = 3; i < vertices.length; i++) {
+    const p = vertices[i];
+    let cFaces = [];
+    for (let f of faces) {
+      if (Vec3.dot(Vec3.sub(p, f.a), f.n) > 0) {
+        dead[f.i][f.j] = true;
+        dead[f.j][f.k] = true;
+        dead[f.k][f.i] = true;
+      } else cFaces.push(f);
+    }
+    faces = structuredClone(cFaces);
+    for (let f of cFaces) {
+      const indices2 = [f.i, f.j, f.k];
+      for (let j = 0; j < 3; j++) {
+        const a = indices2[j];
+        const b = indices2[(j + 1) % 3];
+        if (dead[b][a]) {
+          add_face(b, a, i);
+        }
+      }
+    }
+  }
+  let indices = [];
+  let mapV = /* @__PURE__ */ new Map();
+  const WHITE = Vec3.make(0.8, 0.8, 0.8);
+  const vNull = Vec3.make(-1e3, 1e5, -1e3);
+  for (let f of faces) {
+    if (!mapV.has(f.i)) {
+      mapV.set(f.i, new CoupledVertex(
+        f.a,
+        WHITE,
+        f.n,
+        Vec2.make(f.a.x, f.a.z)
+      ));
+    }
+    if (!mapV.has(f.j)) {
+      mapV.set(f.j, new CoupledVertex(
+        f.b,
+        WHITE,
+        f.n,
+        Vec2.make(f.b.x, f.b.z)
+      ));
+    }
+    if (!mapV.has(f.k)) {
+      mapV.set(f.k, new CoupledVertex(
+        f.c,
+        WHITE,
+        f.n,
+        Vec2.make(f.c.x, f.c.z)
+      ));
+    }
+    indices.push(...[f.i, f.j, f.k]);
+  }
+  let data = [];
+  for (let i = 0; i < vertices.length; i++) {
+    if (mapV.has(i))
+      data.push(mapV.get(i));
+    else data.push(
+      new CoupledVertex(vNull, vNull, vNull, Vec2.make(0, 0))
+    );
+  }
+  console.log(data, indices);
+  return new ModelData(webglVerticesFromCoupledVertices(data), new Uint16Array(indices));
+}
+
+// src/Asteroids.ts
+function makeAsteroidShape(n_vertices) {
+  const f = () => Vec3.make(0.5 - Math.random(), 0.5 - Math.random(), 0.5 - Math.random());
+  let vertices = [];
+  const N = n_vertices;
+  for (let i = 0; i < N; i++) {
+    let y = 1 - 2 * i / (N - 1);
+    const radius = Math.sqrt(1 - y * y);
+    const theta = i * 2.3999632297286535;
+    let x = Math.cos(theta) * radius;
+    let z = Math.sin(theta) * radius;
+    vertices.push(Vec3.add(Vec3.make(x, y, z), Vec3.multScalar(f(), 0.2)));
+  }
+  console.log("N: ", n_vertices, " | ", vertices.length);
+  const data = convexHull(vertices);
+  return data;
+}
+function makeAsteroid(gl, n_vertices, shader) {
+  const data = makeAsteroidShape(n_vertices);
+  let vPos = [];
+  for (let i = 0; i < data.vertices.length; i += 11) vPos.push(...[data.vertices[i], data.vertices[i + 1], data.vertices[i + 2]]);
+  const buffer = createBufferData(gl, data.vertices, gl.STATIC_DRAW);
+  const indices = createStaticIndexBuffer(gl, data.indices);
+  shader.bind(gl);
+  const posAttrib = shader.getAttrib(gl, "vPos");
+  const colorAttrib = shader.getAttrib(gl, "vColor");
+  const normalAttrib = shader.getAttrib(gl, "vNormal");
+  const uvAttrib = shader.getAttrib(gl, "vUV");
+  const vao = create3dPosColorInterleavedVao(gl, buffer, indices, posAttrib, colorAttrib, normalAttrib, uvAttrib);
+  return [vao, data.indices.length, vPos];
+}
+var AsteroidHandler = class {
+  vaos = [];
+  nIndicesVao = [];
+  verticesVao = [[]];
+  shader;
+  asteroids = [];
+  constructor(gl, shader, nPredefinedShapes) {
+    this.shader = shader;
+    for (let i = 0; i < nPredefinedShapes; i++) {
+      const s = makeAsteroid(gl, 5 + Math.random() * 10, shader);
+      this.vaos.push(s[0]);
+      this.nIndicesVao.push(s[1]);
+      this.verticesVao.push(s[2]);
+    }
+  }
+  update(particleSystem, time, dt) {
+    for (let i = 0; i < this.asteroids.length; i++) {
+      this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25 * dt));
+      particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), time, 0.1, 0.4);
+    }
+  }
+  add(pos) {
+    const f = () => 0.5 - Math.random();
+    const offset_pos = Vec3.multScalar(Vec3.make(f(), f(), f()), 50);
+    const scale = Math.floor(2 + Math.random() * 5);
+    const indxVao = Math.floor(Math.random() * this.vaos.length);
+    const vel = Vec3.make(0.5 - Math.random(), 0, 0.5 - Math.random());
+    this.asteroids.push(
+      new Shape(Vec3.add(pos, offset_pos), Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
+    );
+    this.asteroids[this.asteroids.length - 1].vel = vel;
+  }
+  draw(gl) {
+    for (let asteroid of this.asteroids)
+      asteroid.draw(gl);
+  }
+};
+
+// src/Game.ts
+var Game = class {
+  time = 0;
+  isRunning = true;
+  cubeVertices;
+  tableVertices;
+  cubeIndices;
+  tableIndices;
+  floorBuffer;
+  chunk_pos;
+  vaos;
+  shaders;
+  perlinFloor;
+  total_time;
+  shapes;
+  width;
+  height;
+  moveVector;
+  mouseMoveVector;
+  lastMousePos;
+  isShiftPressed;
+  light;
+  Fov;
+  pCamera;
+  perlin3d;
+  noiseTexture;
+  player;
+  pSystem;
+  aSystem;
+  constructor(gl, width, height, shaders, models) {
+    this.width = width;
+    this.height = height;
+    this.total_time = 0;
+    this.moveVector = Vec3.make(0, 0, 0);
+    this.mouseMoveVector = Vec2.make(0, 0);
+    this.lastMousePos = Vec2.make(0, 0);
+    this.perlin3d = new Perlin3d(64, 64);
+    this.vaos = {};
+    this.shaders = {};
+    this.chunk_pos = Vec2.make(0, 0);
+    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.01, 100);
+    gl.clearColor(0.08, 0.08, 0.08, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    const cubeVertices = createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW);
+    const planeVertices = createBufferData(gl, PLANE_VERTICES, gl.STATIC_DRAW);
+    const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
+    const planeIndices = createStaticIndexBuffer(gl, PLANE_INDICES);
+    this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
+    this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
+    this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
+    this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
+    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
+    this.shaders["main"].bind(gl);
+    console.log("error: ", gl.getError());
+    const vPosLoc = this.shaders["main"].getAttrib(gl, "vPos");
+    const vColorLoc = this.shaders["main"].getAttrib(gl, "vColor");
+    const vNormalLoc = this.shaders["main"].getAttrib(gl, "vNormal");
+    const vUVLoc = this.shaders["main"].getAttrib(gl, "vUV");
+    if (vPosLoc < 0 || vColorLoc < 0) {
+      if (vPosLoc < 0) showError("vPos wasnt found");
+      if (vColorLoc < 0) showError("vColor wasnt found");
+      return;
+    }
+    this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    gl.viewport(0, 0, this.width, this.height);
+    this.shapes = [];
+    this.player = new Player(
+      Vec3.make(0, 0, 0),
+      Vec3.make(0.4, 0.4, 0.4),
+      this.shaders["main"],
+      this.vaos["lander"],
+      models["lander"].indices.length,
+      models["lander"].vertices,
+      4
+    );
+    this.light = new Light(
+      Vec3.make(4, 20, 2),
+      Vec3.make(1, 1, 1),
+      this.shaders["light"],
+      this.vaos["cube"],
+      CUBE_INDICES.length,
+      Vec3.make(5, 5, 5),
+      CUBE_VERTICES
+    );
+    this.shaders["main"].bind(gl);
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
+    this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e4);
+    this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
+  }
+  handleKeyDown(e) {
+    if (e.key == "o") {
+      this.isRunning = false;
+      throw new Error("Stopped the program");
+    }
+    if (e.key == "n")
+      this.isShiftPressed = true;
+    if (e.key == "w")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
+    if (e.key == "a")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(-1, 0, 0));
+    if (e.key == "d")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
+    if (e.key == "s")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
+    if (e.code == "Space")
+      this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
+    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
+  }
+  handleKeyUp(e) {
+    if (e.key == "n")
+      this.isShiftPressed = false;
+    if (e.key == "w")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, -1));
+    if (e.key == "a")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(-1, 0, 0));
+    if (e.key == "d")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
+    if (e.key == "s")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
+    if (e.code == "Space")
+      this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
+    this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
+  }
+  handleMouseMovement(e) {
+    this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
+    this.mouseMoveVector.y *= -1;
+  }
+  update(gl, dt) {
+    this.time += dt;
+    if (this.moveVector.y > 0)
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), this.time, 0.1, 0.4);
+    if (Math.random() > 0.993) {
+      this.aSystem.add(Vec3.make(this.player.pos.x, 100, this.player.pos.z));
+    }
+    this.total_time += dt;
+    this.player.update(this.moveVector, this.pCamera, dt);
+    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
+    this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
+    this.aSystem.update(this.pSystem, this.time, dt);
+    updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
+    this.light.updateWorldData();
+    this.player.updateWorldData();
+    this.mouseMoveVector = Vec2.make(0, 0);
+    const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
+    if (coll.collided) {
+      this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 1e-3;
+    }
+    this.pSystem.update(gl, this.time);
+  }
+  setShaderUniform(gl, shader, matViewProj) {
+    shader.bind(gl);
+    gl.uniformMatrix4fv(shader.getUniform(gl, "matViewProj"), false, matViewProj.values);
+    gl.uniform3f(shader.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    gl.uniform3f(shader.getUniform(gl, "lightPos"), this.light.pos.x, this.light.pos.y, this.light.pos.z);
+    gl.uniform3f(shader.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
+    shader.unbind(gl);
+  }
+  draw(gl) {
+    gl.clearColor(0.08, 0.08, 0.08, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
+    this.setShaderUniform(gl, this.shaders["main"], matViewProj);
+    this.setShaderUniform(gl, this.shaders["floor"], matViewProj);
+    this.setShaderUniform(gl, this.shaders["particle"], matViewProj);
+    this.shaders["light"].bind(gl);
+    gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl, "matViewProj"), false, matViewProj.values);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    this.shaders["light"].unbind(gl);
+    this.shapes.forEach((element) => {
+      element.draw(gl);
+    });
+    this.light.draw(gl);
+    this.perlinFloor.draw(gl);
+    this.player.draw(gl);
+    this.pSystem.draw(gl);
+    this.aSystem.draw(gl);
+    gl.finish();
+    this.perlinFloor.updateSwaps(gl);
+    const error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+      console.error("WebGL Error:", error);
+      throw new Error("opengl said something went wrong");
+    }
+  }
+};
+
 // src/main.ts
 async function loadText(url) {
   const response = await fetch(url);
@@ -2169,10 +2344,10 @@ function initGame(shaders, models) {
   let lastTime = performance.now();
   let dt;
   function step() {
+    if (!gl) return;
     const now = performance.now();
     dt = (now - lastTime) / 5;
     lastTime = now;
-    if (!gl) return;
     game.update(gl, dt);
     game.draw(gl);
     if (game.isRunning)
