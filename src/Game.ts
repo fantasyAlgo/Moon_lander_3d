@@ -76,7 +76,7 @@ export class Game {
     this.shaders = {};
     this.chunk_pos = Vec2.make(0.0, 0.0);
 
-    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1.0, 0.01, 100);
+    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1.0, 0.1, 80);
     
     gl.clearColor(0.08, 0.08, 0.08, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -141,7 +141,7 @@ export class Game {
 
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 100000);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
-
+    
   }
 
   handleKeyDown(e : KeyboardEvent){

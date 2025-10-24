@@ -1,6 +1,7 @@
 #version 300 es
 precision mediump float;
 
+
 in vec3 vOutColor;
 in vec3 vOutNormal;
 in vec3 vOutPos;
@@ -12,8 +13,26 @@ uniform vec3 cameraPos;
 uniform sampler2D u_noiseTex;
 
 out vec4 outputColor;
+
+float getCurvature(){
+  vec3 n = normalize(vOutNormal);
+
+  // Compute curvature
+  vec3 dx = dFdx(n);
+  vec3 dy = dFdy(n);
+  vec3 xneg = n - dx;
+  vec3 xpos = n + dx;
+  vec3 yneg = n - dy;
+  vec3 ypos = n + dy;
+  float depth = length(vOutPos);
+  return (cross(xneg, xpos).y - cross(yneg, ypos).x) * 4.0 / depth;
+}
+
+
 void main(){
-  float ambient = 0.09f;
+  float curvature = getCurvature();
+  float ambient = 0.09f + curvature;
+
 
   float noise_height = texture(u_noiseTex, vOutUV*1.5f).r;
 

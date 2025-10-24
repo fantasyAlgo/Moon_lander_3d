@@ -9,6 +9,8 @@ uniform mat4 matViewProj;
 
 uniform vec2 chunkPos;
 uniform sampler2D u_noiseTex;
+uniform vec3 cameraPos;
+
 
 out vec3 vOutColor;
 out vec3 vOutNormal;
@@ -22,7 +24,17 @@ void main(){
   float noise_height = texture(u_noiseTex, vUV).r;
   model_pos.y += noise_height*0.05f;
 
-  gl_Position = matViewProj*model_pos;
+  
+  vec4 posView = model_pos;
+    
+  if (true){
+    float fragmentDist = length(cameraPos-model_pos.xyz);
+    float curvature = 0.0012f;
+    float curved = posView.y - curvature * pow(fragmentDist, 2.0);
+    posView.y = curved;
+  }
+  gl_Position = matViewProj*posView;
+
   
   vOutColor = vec3(0.3+vPos.y*0.04) + vNormal.y;
   vOutNormal = vec3(vNormal.x, 1.0, vNormal.y);

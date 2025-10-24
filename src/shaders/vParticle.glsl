@@ -14,6 +14,7 @@ in float size;
 
 uniform mat4 matViewProj;
 uniform float cTime;
+uniform vec3 cameraPos;
 
 out vec3 vOutColor;
 out vec3 vOutNormal;
@@ -28,6 +29,14 @@ void main(){
   vec4 model_pos = vec4(oPos, 0.0) + vec4(size*0.080f*timeScale*vPos, 1.0);
   float noise_height = vUV.x;
   model_pos.y += noise_height*0.005f;
+
+  // curvature
+  if (true){
+    float fragmentDist = length(cameraPos-model_pos.xyz);
+    float curvature = 0.0012f;
+    float curved = model_pos.y - curvature * pow(fragmentDist, 2.0);
+    model_pos.y = curved;
+  }
 
   gl_Position = matViewProj*model_pos;
   
