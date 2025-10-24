@@ -1265,6 +1265,10 @@ var Shape = class {
       const rV = Mat4x4.multVec4(this.model, v);
       result.push(rV.convertToVec3());
     }
+    if (result.length < 2) {
+      console.log(this.vertices);
+      throw new Error("What? modelData length is 0 or 1");
+    }
     this.modelData = result;
   }
   draw(gl) {
@@ -1782,7 +1786,7 @@ var ParticleSystem = class {
     this.vao = vao;
     this.max_particles = max_particles;
     this.setShapeBuffer(gl, plane_vbo, plane_ibo);
-    const data = new Float32Array(max_particles * 7);
+    const data = new Float32Array(max_particles * 8);
     const dataB = createBufferData(gl, data, gl.DYNAMIC_DRAW);
     this.setDataBuffer(gl, dataB);
     gl.bindVertexArray(null);
@@ -1841,27 +1845,33 @@ var ParticleSystem = class {
     const initSPos = this.shader.getAttrib(gl, "initialPos");
     const vDirSPos = this.shader.getAttrib(gl, "vDir");
     const timeSPos = this.shader.getAttrib(gl, "startTime");
+    const sizePos = this.shader.getAttrib(gl, "size");
     this.timeUniform = this.shader.getUniform(gl, "cTime");
     gl.enableVertexAttribArray(initSPos);
     gl.enableVertexAttribArray(vDirSPos);
     gl.enableVertexAttribArray(timeSPos);
+    gl.enableVertexAttribArray(sizePos);
     gl.bindBuffer(gl.ARRAY_BUFFER, dataB);
-    gl.vertexAttribPointer(initSPos, 3, gl.FLOAT, false, 7 * Float32Array.BYTES_PER_ELEMENT, 0 * Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribPointer(initSPos, 3, gl.FLOAT, false, 8 * Float32Array.BYTES_PER_ELEMENT, 0 * Float32Array.BYTES_PER_ELEMENT);
     gl.vertexAttribDivisor(initSPos, 1);
-    gl.vertexAttribPointer(vDirSPos, 3, gl.FLOAT, false, 7 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribPointer(vDirSPos, 3, gl.FLOAT, false, 8 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
     gl.vertexAttribDivisor(vDirSPos, 1);
-    gl.vertexAttribPointer(timeSPos, 1, gl.FLOAT, false, 7 * Float32Array.BYTES_PER_ELEMENT, 6 * Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribPointer(timeSPos, 1, gl.FLOAT, false, 8 * Float32Array.BYTES_PER_ELEMENT, 6 * Float32Array.BYTES_PER_ELEMENT);
     gl.vertexAttribDivisor(timeSPos, 1);
+    gl.vertexAttribPointer(sizePos, 1, gl.FLOAT, false, 8 * Float32Array.BYTES_PER_ELEMENT, 7 * Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribDivisor(sizePos, 1);
     gl.bindVertexArray(null);
     this.data = dataB;
   }
-  add(iPos, dir, cTime, pos_randomness = 0.1, dir_randomness = 0.01) {
-    const f = () => dir_randomness / 2 - Math.random() * dir_randomness;
+  add(iPos, dir, size, cTime, pos_randomness = 0.1, dir_randomness = 0.01) {
+    const f = () => 0.5 - Math.random();
     const rDir = Vec3.make(f(), f(), f());
     const rPos = Vec3.make(f(), f(), f());
+    rDir.multScalar(dir_randomness);
+    rPos.multScalar(pos_randomness);
     iPos = Vec3.add(iPos, rPos);
     dir = Vec3.add(dir, rDir);
-    this.toSpawnParticles.push(iPos.x, iPos.y, iPos.z, dir.x, dir.y, dir.z, cTime);
+    this.toSpawnParticles.push(iPos.x, iPos.y, iPos.z, dir.x, dir.y, dir.z, cTime, size);
   }
   update(gl, time) {
     this.shader.bind(gl);
@@ -2077,8 +2087,13 @@ function makeAsteroidShape(n_vertices) {
 }
 function makeAsteroid(gl, n_vertices, shader) {
   const data = makeAsteroidShape(n_vertices);
-  let vPos = [];
-  for (let i = 0; i < data.vertices.length; i += 11) vPos.push(...[data.vertices[i], data.vertices[i + 1], data.vertices[i + 2]]);
+  let vPosData = [];
+  const vNull = Vec3.make(-1e3, 1e5, -1e3);
+  for (let i = 0; i < data.vertices.length; i += 11) {
+    if (data.vertices[i] != vNull.x)
+      vPosData.push(...[data.vertices[i], data.vertices[i + 1], data.vertices[i + 2]]);
+  }
+  if (vPosData.length < 3) throw new Error("vertices length is less than 3");
   const buffer = createBufferData(gl, data.vertices, gl.STATIC_DRAW);
   const indices = createStaticIndexBuffer(gl, data.indices);
   shader.bind(gl);
@@ -2087,39 +2102,52 @@ function makeAsteroid(gl, n_vertices, shader) {
   const normalAttrib = shader.getAttrib(gl, "vNormal");
   const uvAttrib = shader.getAttrib(gl, "vUV");
   const vao = create3dPosColorInterleavedVao(gl, buffer, indices, posAttrib, colorAttrib, normalAttrib, uvAttrib);
-  return [vao, data.indices.length, vPos];
+  return [vao, data.indices.length, vPosData];
 }
 var AsteroidHandler = class {
   vaos = [];
   nIndicesVao = [];
-  verticesVao = [[]];
+  verticesVao = [];
   shader;
   asteroids = [];
   constructor(gl, shader, nPredefinedShapes) {
     this.shader = shader;
     for (let i = 0; i < nPredefinedShapes; i++) {
-      const s = makeAsteroid(gl, 5 + Math.random() * 10, shader);
+      const s = makeAsteroid(gl, 8 + Math.random() * 8, shader);
       this.vaos.push(s[0]);
       this.nIndicesVao.push(s[1]);
+      if (s[2].length < 2) throw new Error("Problem with asteroid initialization");
       this.verticesVao.push(s[2]);
     }
   }
-  update(particleSystem, time, dt) {
+  update(particleSystem, perlin, perlinFloor, time, dt) {
     for (let i = 0; i < this.asteroids.length; i++) {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25 * dt));
-      particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), time, 0.1, 0.4);
+      this.asteroids[i].updateWorldData();
+      particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2 * this.asteroids[i].scale.x, time, 0.2, 1);
+      if (this.asteroids[i].pos.y > 20) continue;
+      const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
+      if (coll.collided) {
+        for (let j = 0; j < 100; j++) {
+          particleSystem.add(this.asteroids[i].pos, Vec3.make(0, 0, 0), 2 * this.asteroids[i].scale.x, time, 1, 2);
+        }
+        this.asteroids.splice(i, 1);
+        i--;
+      }
     }
   }
   add(pos) {
     const f = () => 0.5 - Math.random();
-    const offset_pos = Vec3.multScalar(Vec3.make(f(), f(), f()), 50);
+    const offset_pos = Vec3.multScalar(Vec3.make(f(), f(), f()), 100);
     const scale = Math.floor(2 + Math.random() * 5);
     const indxVao = Math.floor(Math.random() * this.vaos.length);
-    const vel = Vec3.make(0.5 - Math.random(), 0, 0.5 - Math.random());
+    const vel = Vec3.make(0.5 - Math.random(), -1, 0.5 - Math.random());
+    if (this.verticesVao[indxVao].length < 2) throw new Error("Vertices length cannot be less than 2");
     this.asteroids.push(
       new Shape(Vec3.add(pos, offset_pos), Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
     );
     this.asteroids[this.asteroids.length - 1].vel = vel;
+    this.asteroids[this.asteroids.length - 1].mass = 1e3;
   }
   draw(gl) {
     for (let asteroid of this.asteroids)
@@ -2216,7 +2244,7 @@ var Game = class {
     );
     this.shaders["main"].bind(gl);
     gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
-    this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e4);
+    this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e5);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
   }
   handleKeyDown(e) {
@@ -2260,15 +2288,15 @@ var Game = class {
   update(gl, dt) {
     this.time += dt;
     if (this.moveVector.y > 0)
-      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), this.time, 0.1, 0.4);
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), 1, this.time, 0.1, 0.4);
     if (Math.random() > 0.993) {
-      this.aSystem.add(Vec3.make(this.player.pos.x, 100, this.player.pos.z));
+      this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
     }
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
     this.light.updateWorldData();
     this.player.updateWorldData();

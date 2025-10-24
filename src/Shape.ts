@@ -16,13 +16,14 @@ export class Shape {
 
   constructor(
     public pos : Vec3, 
-    private scale : Vec3,
+    public scale : Vec3,
     public readonly program : ShaderProgram,
     public vao: WebGLVertexArrayObject,
     public readonly numIndices: number,
     public readonly vertices : Float32Array = new Float32Array([]),
   ){
       this.rot = Quat.makeFromAxis(0, Vec3.make(0, 1, 0));
+
     };
   
   setRotation(quaterions : Quat[]){ // Set a new rotation by multiplying a sequence of quaterions
@@ -39,6 +40,10 @@ export class Shape {
       const v : Vec4 = Vec4.make(this.vertices[i], this.vertices[i+1], this.vertices[i+2], 1.0);
       const rV : Vec4 = Mat4x4.multVec4(this.model, v);
       result.push(rV.convertToVec3());
+    }
+    if (result.length < 2){
+      console.log(this.vertices);
+      throw new Error("What? modelData length is 0 or 1");
     }
     this.modelData = result;
   }

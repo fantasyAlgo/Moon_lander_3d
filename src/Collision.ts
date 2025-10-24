@@ -37,9 +37,10 @@ export class Collision {
   static checkPerlinCollision(s1 : Shape, p : Perlin3d, pHandler : PerlinFloor){
     const data : Vec3[] = s1.modelData;
     const abab : Vec2[] = getFloorProjection(data);
+    //console.log("data: ", data);
     let floorPoints : Vec3[] = [];
     //console.log(abab, data);
-    const f = (e) => { 
+    const f = (e) => {
       floorPoints.push(Vec3.make(
         e.x, 
         pHandler.getValue(p, e.x, e.y),

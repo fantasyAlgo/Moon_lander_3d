@@ -30,7 +30,7 @@ export class ParticleSystem {
 
     this.setShapeBuffer(gl, plane_vbo, plane_ibo);
 
-    const data : Float32Array = new Float32Array(max_particles*7);
+    const data : Float32Array = new Float32Array(max_particles*8);
     const dataB : WebGLBuffer = createBufferData(gl, data, gl.DYNAMIC_DRAW);
     this.setDataBuffer(gl, dataB);
 
@@ -76,21 +76,26 @@ export class ParticleSystem {
     const initSPos = this.shader.getAttrib(gl, "initialPos");
     const vDirSPos = this.shader.getAttrib(gl, "vDir");
     const timeSPos = this.shader.getAttrib(gl, "startTime");
+    const sizePos = this.shader.getAttrib(gl, "size");
     this.timeUniform = this.shader.getUniform(gl, "cTime");
 
     gl.enableVertexAttribArray(initSPos);
     gl.enableVertexAttribArray(vDirSPos);
     gl.enableVertexAttribArray(timeSPos);
+    gl.enableVertexAttribArray(sizePos);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, dataB);
-    gl.vertexAttribPointer(initSPos, 3, gl.FLOAT, false, 7*Float32Array.BYTES_PER_ELEMENT, 0*Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribPointer(initSPos, 3, gl.FLOAT, false, 8*Float32Array.BYTES_PER_ELEMENT, 0*Float32Array.BYTES_PER_ELEMENT);
     gl.vertexAttribDivisor(initSPos, 1);
 
-    gl.vertexAttribPointer(vDirSPos, 3, gl.FLOAT, false,  7*Float32Array.BYTES_PER_ELEMENT, 3*Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribPointer(vDirSPos, 3, gl.FLOAT, false, 8*Float32Array.BYTES_PER_ELEMENT, 3*Float32Array.BYTES_PER_ELEMENT);
     gl.vertexAttribDivisor(vDirSPos, 1);
 
-    gl.vertexAttribPointer(timeSPos, 1, gl.FLOAT, false, 7*Float32Array.BYTES_PER_ELEMENT, 6*Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribPointer(timeSPos, 1, gl.FLOAT, false, 8*Float32Array.BYTES_PER_ELEMENT, 6*Float32Array.BYTES_PER_ELEMENT);
     gl.vertexAttribDivisor(timeSPos, 1);
+
+    gl.vertexAttribPointer(sizePos, 1, gl.FLOAT, false, 8*Float32Array.BYTES_PER_ELEMENT, 7*Float32Array.BYTES_PER_ELEMENT);
+    gl.vertexAttribDivisor(sizePos, 1);
 
     gl.bindVertexArray(null);
     
@@ -98,15 +103,17 @@ export class ParticleSystem {
   }
 
 
-  add(iPos : Vec3, dir : Vec3, cTime : number, pos_randomness : number = 0.1, dir_randomness : number = 0.01 ) {
-    const f = () => (dir_randomness/2.0 -  Math.random()*dir_randomness);
+  add(iPos : Vec3, dir : Vec3, size : number, cTime : number, pos_randomness : number = 0.1, dir_randomness : number = 0.01 ) {
+    const f = () => (0.5 -  Math.random());
     const rDir = Vec3.make(f(), f(), f());
     const rPos = Vec3.make(f(), f(), f());
+    rDir.multScalar(dir_randomness);
+    rPos.multScalar(pos_randomness);
 
     iPos = Vec3.add(iPos, rPos);
     dir = Vec3.add(dir, rDir);
 
-    this.toSpawnParticles.push(iPos.x, iPos.y, iPos.z, dir.x, dir.y, dir.z, cTime);
+    this.toSpawnParticles.push(iPos.x, iPos.y, iPos.z, dir.x, dir.y, dir.z, cTime, size);
   }
   update(gl : WebGL2RenderingContext, time : number){
     this.shader.bind(gl);

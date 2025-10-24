@@ -139,7 +139,7 @@ export class Game {
     this.shaders["main"].bind(gl);
     gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
 
-    this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 10000);
+    this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 100000);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
 
   }
@@ -193,16 +193,16 @@ export class Game {
     //if (Math.floor(this.time)%100 == 0)
     //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
     if (this.moveVector.y > 0)
-      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), this.time, 0.1, 0.4);
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), 1.0, this.time, 0.1, 0.4);
     if (Math.random() > 0.993){
-      this.aSystem.add(Vec3.make(this.player.pos.x, 100, this.player.pos.z));
+      this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
     }
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
     //updateEntitiesPhysics([this.player], dt);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
 
