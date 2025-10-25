@@ -24,7 +24,7 @@ void main(){
   
   if (true){
     float fragmentDist = length(cameraPos-posView.xyz);
-    float curvature = 0.0012f;
+    float curvature = 0.001f;
     float curved = posView.y - curvature * pow(fragmentDist, 2.0);
     posView.y = curved;
   }

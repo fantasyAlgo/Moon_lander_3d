@@ -16,6 +16,11 @@ out vec3 vOutColor;
 out vec3 vOutNormal;
 out vec3 vOutPos;
 out vec2 vOutUV;
+out float vVisibility;
+
+const float density = 0.007f;
+const float gradient = 1.5f;
+
 void main(){
   vec2 vUV = 1.0f+vec2(vPos.x, vPos.z)*0.5f;
   vec4 model_pos = matWorld * vec4(vPos, 1.0);
@@ -26,10 +31,12 @@ void main(){
 
   
   vec4 posView = model_pos;
+  vVisibility = exp(-pow(length(cameraPos.xz - model_pos.xz)*density, gradient));
+  vVisibility = clamp(vVisibility, 0.0f, 1.0f);
     
   if (true){
     float fragmentDist = length(cameraPos-model_pos.xyz);
-    float curvature = 0.0012f;
+    float curvature = 0.001f;
     float curved = posView.y - curvature * pow(fragmentDist, 2.0);
     posView.y = curved;
   }

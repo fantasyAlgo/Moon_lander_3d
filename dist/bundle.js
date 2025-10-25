@@ -2195,7 +2195,7 @@ var Game = class {
     this.vaos = {};
     this.shaders = {};
     this.chunk_pos = Vec2.make(0, 0);
-    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.1, 60);
+    this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.1, 80);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);

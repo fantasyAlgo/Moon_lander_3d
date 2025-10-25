@@ -6,6 +6,7 @@ in vec3 vOutColor;
 in vec3 vOutNormal;
 in vec3 vOutPos;
 in vec2 vOutUV;
+in float vVisibility;
 
 uniform vec3 lightColor;
 uniform vec3 lightPos;
@@ -47,6 +48,8 @@ void main(){
   float specular = specAmount*specularLight;
 
   vec3 light = lightColor*(diffuse + ambient + specular + noise_height*0.08f) ;
+
   outputColor = vec4(vOutColor, 1.0f) * vec4(light, 1.0);
+  outputColor = mix(vec4(0.08f, 0.08f, 0.08f, 1.0f), outputColor, vVisibility);
   //outputColor = vec4(vOutNormal, 1.0)*vec4(lightColor, 1.0) +  0.01f*diffuse + 0.0001f*vOutColor.x;
 }
