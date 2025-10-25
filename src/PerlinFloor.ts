@@ -112,32 +112,20 @@ export class PerlinFloor {
     const chunk : Vec2 = Vec2.make(iX, iY);
     console.log("ds: ", dx, dy);
     if (dy < 0){
-      //this.queueChanges.push(new QueueChanges(0, 2, chunk, !true));
-      //this.queueChanges.push(new QueueChanges(3, 5, chunk, !true));
-      //this.queueChanges.push(new QueueChanges(6, 8, chunk, !true));
       for (let i = 0; i < this.nChunks*this.nChunks; i+=this.nChunks)
         this.queueChanges.push(new QueueChanges(i, i+this.nChunks-1, chunk, false));
     }
     if (dy > 0){
-      //this.queueChanges.push(new QueueChanges(2, 0, chunk, !true));
-      //this.queueChanges.push(new QueueChanges(5, 3, chunk, !true));
-      //this.queueChanges.push(new QueueChanges(8, 6, chunk, !true));
       for (let i = 0; i < this.nChunks*this.nChunks; i+=this.nChunks)
         this.queueChanges.push(new QueueChanges(i+this.nChunks-1, i, chunk, false));
       //console.log("q: ", this.queueChanges);
     }
     if (dx < 0){
-      //this.queueChanges.push(new QueueChanges(0, 6, chunk, !false));
-      //this.queueChanges.push(new QueueChanges(1, 7, chunk, !false));
-      //this.queueChanges.push(new QueueChanges(2, 8, chunk, !false));
       const start = this.nChunks*(this.nChunks-1);
       for (let i = 0; i < this.nChunks; i+=1)
         this.queueChanges.push(new QueueChanges(i, start+i, chunk, true));
     }
     if (dx > 0){
-      //this.queueChanges.push(new QueueChanges(6, 0, chunk, !false));
-      //this.queueChanges.push(new QueueChanges(7, 1, chunk, !false));
-      //this.queueChanges.push(new QueueChanges(8, 2, chunk, !false));
       const start = this.nChunks*(this.nChunks-1);
       for (let i = 0; i < this.nChunks; i+=1)
         this.queueChanges.push(new QueueChanges(start+i, i, chunk, true));

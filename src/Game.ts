@@ -17,6 +17,7 @@ import { updateEntitiesPhysics } from "./Physics.ts";
 import { Collision } from "./Collision.ts";
 import { ParticleSystem } from "./ParticleSystem.ts";
 import { AsteroidHandler } from "./Asteroids.ts";
+import { SPAWN_ASTEROID_PROB } from "./Settings.ts";
 
 
 
@@ -194,7 +195,7 @@ export class Game {
     //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), 1.0, this.time, 0.1, 0.4);
-    if (Math.random() > 0.993){
+    if (Math.random() > (1.0-SPAWN_ASTEROID_PROB)){
       this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
     }
 
@@ -253,7 +254,7 @@ export class Game {
     });
 
 
-    this.light.draw(gl);
+    //this.light.draw(gl);
     this.perlinFloor.draw(gl);
     this.player.draw(gl);
     this.pSystem.draw(gl);

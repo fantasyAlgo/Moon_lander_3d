@@ -11,6 +11,25 @@ async function loadText(url: string): Promise<string> {
   return await response.text();
 }
 
+
+function saveInput() {
+  const weightButton = document.getElementById("weight") as HTMLSelectElement;
+  const velocityButton = document.getElementById("velocity") as HTMLSelectElement;
+  const difficulyButtom = document.getElementById("difficulty") as HTMLSelectElement;
+  var weight = weightButton.value;
+  var velocity = velocityButton.value;
+  var difficulty = difficulyButtom.value;
+
+  localStorage.setItem("weight", weight == "" ? "200" : weight);
+  localStorage.setItem("difficulty", difficulty.valueOf());
+  localStorage.setItem(
+  "velocity",
+  velocity == "" ? "30" : velocity,
+  );
+}
+
+
+
 let game : Game;
 let canvas : HTMLCanvasElement;
 
@@ -74,21 +93,51 @@ async function getModels(){
 }
 
 
-try {
-  (async () => {
-    let shaders = await getShaders();
-    let models = await getModels();
-    initGame(shaders, models);
-  })();
-} catch (e) {
-  console.log(e);
-  showError("There was a problem with the game initialization");
+const loadButton : HTMLButtonElement = document.getElementById('loadButton') as HTMLButtonElement;
+const loader = document.getElementById('loader');
+const progressText = document.getElementById('progressText');
+const landingPage = document.getElementById('landingPage');
+const gameContainer = document.getElementById('gameContainer');
+
+async function loadGame() {
+    if (!loader) throw new Error("loader didnt load");
+    if (!gameContainer) throw new Error("gameContainer didnt load");
+    if (!landingPage) throw new Error("landingPage didnt load");
+    if (!progressText) throw new Error("progressText didnt load");
+
+
+    loadButton.disabled = true;
+    loader.classList.add('active');
+    
+    try {
+      saveInput();
+      let shaders = await getShaders();
+      let models = await getModels();
+
+      await new Promise(resolve => setTimeout(resolve, 300));
+      gameContainer.classList.add('active');
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
+      landingPage.classList.add('hidden');
+
+      initGame(shaders, models);
+    } catch (error) {
+        console.error('Error loading game:', error);
+        progressText.textContent = 'Error loading game';
+        loadButton.disabled = false;
+    }
 }
 
+loadButton.addEventListener('click', loadGame);
+
+
+
 document.addEventListener("keydown", (e) => {
+  e.preventDefault();
   game.handleKeyDown(e);
 });
 document.addEventListener("keyup", (e) => {
+  e.preventDefault();
   game.handleKeyUp(e);
 });
 

@@ -28,10 +28,11 @@ export class Player extends Shape {
   update(moveVec : Vec3, camera : Camera, dt : number){
 
     let sub = Vec3.sub(Vec3.make(-moveVec.x*0.5, 0.0, -moveVec.z*0.5), this.rotationAxis);
-    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.005*dt));
+    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014*dt));
     //this.rotationAxis = Vec3.multScalar(Vec3.make(-moveVec.z, 0.0, moveVec.x), 0.01*dt);
     if (this.rotationAxis.x == 0.0 && this.rotationAxis.y == 0.0 && this.rotationAxis.z == 0)
       this.rotationAxis = UP_VEC;
+    this.rotationAxis = Vec3.normalize(this.rotationAxis);
 
     const angle = Math.atan2(camera.forward.x, camera.forward.z);
     this.setRotation([Quat.makeFromAxis(angle, UP_VEC), Quat.makeFromAxis(Math.PI, this.rotationAxis)]);

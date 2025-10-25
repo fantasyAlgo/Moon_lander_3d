@@ -80,7 +80,7 @@ export class AsteroidHandler {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25*dt));
       this.asteroids[i].updateWorldData();
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2.0*this.asteroids[i].scale.x, time, 0.2, 1.0);
-      if (this.asteroids[i].pos.y > 20) continue;
+      if (this.asteroids[i].pos.y > 25) continue;
       const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
       if (coll.collided){
         for (let j = 0; j < 100; j++) {

@@ -1551,9 +1551,10 @@ var Player = class extends Shape {
   cDir = Vec3.make(0, 0, 0);
   update(moveVec, camera, dt) {
     let sub = Vec3.sub(Vec3.make(-moveVec.x * 0.5, 0, -moveVec.z * 0.5), this.rotationAxis);
-    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 5e-3 * dt));
+    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014 * dt));
     if (this.rotationAxis.x == 0 && this.rotationAxis.y == 0 && this.rotationAxis.z == 0)
       this.rotationAxis = UP_VEC2;
+    this.rotationAxis = Vec3.normalize(this.rotationAxis);
     const angle = Math.atan2(camera.forward.x, camera.forward.z);
     this.setRotation([Quat.makeFromAxis(angle, UP_VEC2), Quat.makeFromAxis(Math.PI, this.rotationAxis)]);
     const perp = this.rot.rotate(Vec3.make(0, 1, 0));
@@ -2125,7 +2126,7 @@ var AsteroidHandler = class {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25 * dt));
       this.asteroids[i].updateWorldData();
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2 * this.asteroids[i].scale.x, time, 0.2, 1);
-      if (this.asteroids[i].pos.y > 20) continue;
+      if (this.asteroids[i].pos.y > 25) continue;
       const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
       if (coll.collided) {
         for (let j = 0; j < 100; j++) {
@@ -2154,6 +2155,18 @@ var AsteroidHandler = class {
       asteroid.draw(gl);
   }
 };
+
+// src/Settings.ts
+var diff = localStorage.getItem("difficulty");
+var levels = [];
+console.log(diff);
+if (diff == "easy") levels = [1e-3, 0.5, 5, 1e10];
+if (diff == "medium") levels = [5e-3, 0.3, 4, 5318008];
+if (diff == "hard") levels = [0.01, 0.2, 2, 8008];
+var SPAWN_ASTEROID_PROB = levels[0];
+var MAX_IMPACT_VEL = levels[1];
+var MIN_ALIGNMENT = levels[2];
+var INITIAL_FUEL = levels[3];
 
 // src/Game.ts
 var Game = class {
@@ -2289,7 +2302,7 @@ var Game = class {
     this.time += dt;
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), 1, this.time, 0.1, 0.4);
-    if (Math.random() > 0.993) {
+    if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
       this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
     }
     this.total_time += dt;
@@ -2331,7 +2344,6 @@ var Game = class {
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
-    this.light.draw(gl);
     this.perlinFloor.draw(gl);
     this.player.draw(gl);
     this.pSystem.draw(gl);
@@ -2351,6 +2363,20 @@ async function loadText(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to load ${url}`);
   return await response.text();
+}
+function saveInput() {
+  const weightButton = document.getElementById("weight");
+  const velocityButton = document.getElementById("velocity");
+  const difficulyButtom = document.getElementById("difficulty");
+  var weight = weightButton.value;
+  var velocity = velocityButton.value;
+  var difficulty = difficulyButtom.value;
+  localStorage.setItem("weight", weight == "" ? "200" : weight);
+  localStorage.setItem("difficulty", difficulty.valueOf());
+  localStorage.setItem(
+    "velocity",
+    velocity == "" ? "30" : velocity
+  );
 }
 var game;
 var canvas;
@@ -2411,20 +2437,40 @@ async function getModels() {
     object[models_names[i]] = await loadObj(model_source.concat("/", models_names[i], ".obj"));
   return object;
 }
-try {
-  (async () => {
+var loadButton = document.getElementById("loadButton");
+var loader = document.getElementById("loader");
+var progressText = document.getElementById("progressText");
+var landingPage = document.getElementById("landingPage");
+var gameContainer = document.getElementById("gameContainer");
+async function loadGame() {
+  if (!loader) throw new Error("loader didnt load");
+  if (!gameContainer) throw new Error("gameContainer didnt load");
+  if (!landingPage) throw new Error("landingPage didnt load");
+  if (!progressText) throw new Error("progressText didnt load");
+  loadButton.disabled = true;
+  loader.classList.add("active");
+  try {
+    saveInput();
     let shaders = await getShaders();
     let models = await getModels();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    gameContainer.classList.add("active");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    landingPage.classList.add("hidden");
     initGame(shaders, models);
-  })();
-} catch (e) {
-  console.log(e);
-  showError("There was a problem with the game initialization");
+  } catch (error) {
+    console.error("Error loading game:", error);
+    progressText.textContent = "Error loading game";
+    loadButton.disabled = false;
+  }
 }
+loadButton.addEventListener("click", loadGame);
 document.addEventListener("keydown", (e) => {
+  e.preventDefault();
   game.handleKeyDown(e);
 });
 document.addEventListener("keyup", (e) => {
+  e.preventDefault();
   game.handleKeyUp(e);
 });
 document.addEventListener("mousemove", (e) => {

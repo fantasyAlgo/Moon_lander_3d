@@ -3,25 +3,397 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Moon lander</title>
+    <title>WebGL Game Loader</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Landing page */
+        #landingPage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
             justify-content: center;
             align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        
+        #landingPage.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .landing-content {
+            text-align: center;
+            max-width: 600px;
+            padding: 40px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        h1 {
+            font-size: 3em;
+            font-weight: 700;
+            letter-spacing: 3px;
+            margin-bottom: 15px;
+            color: #ffffff;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+            animation: titleGlow 3s ease-in-out infinite;
+        }
+        
+        @keyframes titleGlow {
+            0%, 100% { text-shadow: 0 0 30px rgba(255, 255, 255, 0.3); }
+            50% { text-shadow: 0 0 50px rgba(255, 255, 255, 0.5), 0 0 80px rgba(99, 78, 145, 0.3); }
+        }
+        
+        .subtitle {
+            font-size: 1.1em;
+            color: #b0b0b0;
+            margin-bottom: 50px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+        
+        #loadButton {
+            background: linear-gradient(135deg, #634e91 0%, #8b6bb7 100%);
+            color: #ffffff;
+            border: none;
+            padding: 16px 48px;
+            font-size: 0.95em;
+            font-weight: 600;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            border-radius: 5px;
+            box-shadow: 0 4px 20px rgba(99, 78, 145, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #loadButton::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        #loadButton:hover::before {
+            left: 100%;
+        }
+        
+        #loadButton:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(99, 78, 145, 0.6);
+        }
+        
+        #loadButton:active {
+            transform: translateY(0);
+        }
+        
+        #loadButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Loader */
+        .loader {
+            display: none;
+            margin-top: 40px;
+        }
+        
+        .loader.active {
+            display: block;
+        }
+        
+        .progress-bar-container {
+            width: 300px;
+            height: 3px;
+            background: rgba(255,255,255,0.1);
+            margin: 0 auto 20px;
+            overflow: hidden;
+            border-radius: 2px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #634e91, #8b6bb7);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(99, 78, 145, 0.6);
+        }
+        
+        .progress-text {
+            font-size: 0.85em;
+            color: #999;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Game container */
+        #gameContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: #000000;
+        }
+        
+        #gameContainer.active {
+            display: block;
+        }
+        
+        .container {
+            background: rgba(248, 245, 245, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6), 0 0 60px rgba(99, 78, 145, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: containerFadeIn 0.6s ease-out;
+        }
+        
+        @keyframes containerFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .container h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            color: #1c1c1b;
+            text-shadow: none;
+            animation: none;
+        }
+        
+        .container p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.05em;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #1c1c1b;
+            text-align: left;
+            font-size: 0.95em;
+        }
+        
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+            color: #1c1c1b;
+        }
+        
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #634e91;
+            box-shadow: 0 0 0 3px rgba(99, 78, 145, 0.1);
+        }
+        
+        input[type="number"]::placeholder {
+            color: #999;
+        }
+        
+        #backgroundVideo {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
             height: 100vh;
-            background-color: #f0f0f0;
+            object-fit: cover;
+            z-index: 0;
+            opacity: 0.4;
         }
+        
+        #backgroundVideo::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 0%, rgba(10, 10, 10, 0.7) 100%);
+            z-index: 1;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            background-color: white;
+            font-size: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: #1c1c1b;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23634e91' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6,9 12,15 18,9'></polyline></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 18px;
+            transition: all 0.3s ease;
+        }
+        
+        select:hover {
+            border-color: #634e91;
+            box-shadow: 0 0 0 3px rgba(99, 78, 145, 0.1);
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #634e91;
+            box-shadow: 0 0 0 3px rgba(99, 78, 145, 0.15);
+        }
+        
+        select option {
+            color: #1c1c1b;
+            background-color: white;
+            padding: 10px;
+        }
+        
         canvas {
-            border: 1px solid #000;
+            width: 100%;
+            height: 100%;
+            display: block;
         }
-
+        
+        /* Floating particles effect */
+        .particle {
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.6;
+            animation: float 20s infinite;
+            z-index: 1;
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.6;
+            }
+            90% {
+                opacity: 0.6;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(50px);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
-    <canvas id="demo-canvas"></canvas>
+    <div id="landingPage">
+        <video autoplay muted loop id="backgroundVideo">
+            <source src="moonVideo.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+        </video>
+        
+        <div class="landing-content">
+            <h1>Moon landing 3d</h1>
+            <p class="subtitle">Trying to port the original 2d moonlanding game into 3d</p>
+            
+            <div class="container">
+                <h1>Get Ready for the Adventure!</h1>
+                <p>Let's customize your moon-lander before we start.</p>
+                <form>
+                    <label for="weight">Spacecraft Weight</label>
+                    <input
+                        type="number"
+                        id="weight"
+                        name="weight"
+                        placeholder="Generally around 200"
+                        required
+                    />
+                    <label for="velocity">Starting Velocity</label>
+                    <input
+                        type="number"
+                        id="velocity"
+                        name="velocity"
+                        placeholder="Generally around 30"
+                        required
+                    />
+                    <label for="difficulty">Difficulty Level</label>
+                    <select id="difficulty">
+                        <option value="easy">Easy - Smooth Landing</option>
+                        <option value="medium" selected>Medium - Steady Pilot</option>
+                        <option value="hard">Hard - Expert Only</option>
+                    </select>
+                    <br />
+                    <button type="button" id="loadButton">Launch Mission</button>
+                  
+                    <div class="loader" id="loader">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progressBar"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">Initializing...</div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div id="gameContainer">
+        <canvas id="demo-canvas"></canvas>
+    </div>
     <script src="dist/bundle.js"></script>
+    
+    <script>
+        // Add floating particles
+        for (let i = 0; i < 300; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 20 + 's';
+            particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+            document.body.appendChild(particle);
+        }
+
+
+    </script>
+
 </body>
 </html>

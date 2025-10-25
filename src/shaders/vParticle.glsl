@@ -33,7 +33,7 @@ void main(){
   // curvature
   if (true){
     float fragmentDist = length(cameraPos-model_pos.xyz);
-    float curvature = 0.0012f;
+    float curvature = 0.001f;
     float curved = model_pos.y - curvature * pow(fragmentDist, 2.0);
     model_pos.y = curved;
   }
