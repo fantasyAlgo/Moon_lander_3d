@@ -25,7 +25,7 @@ export class Player extends Shape {
 
     };
 
-  update(moveVec : Vec3, camera : Camera, dt : number){
+  update(moveVec : Vec3, camera : Camera, shiftPressed : boolean, dt : number){
 
     let sub = Vec3.sub(Vec3.make(-moveVec.x*0.5, 0.0, -moveVec.z*0.5), this.rotationAxis);
     this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014*dt));
@@ -39,8 +39,9 @@ export class Player extends Shape {
 
     const perp : Vec3 = this.rot.rotate(Vec3.make(0, 1, 0));
     this.cDir = perp;
+    const speed = shiftPressed ? 3.0 : 1.0;
     if (moveVec.y > 0)
-      this.vel = Vec3.add(this.vel, Vec3.multScalar(perp, 0.0005*dt));
+      this.vel = Vec3.add(this.vel, Vec3.multScalar(perp, 0.0005*dt*speed));
 
 
     this.vel.x *= 0.99;

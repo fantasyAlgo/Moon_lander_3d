@@ -1549,7 +1549,7 @@ var Player = class extends Shape {
     this.camera_dist = camera_dist;
   }
   cDir = Vec3.make(0, 0, 0);
-  update(moveVec, camera, dt) {
+  update(moveVec, camera, shiftPressed, dt) {
     let sub = Vec3.sub(Vec3.make(-moveVec.x * 0.5, 0, -moveVec.z * 0.5), this.rotationAxis);
     this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014 * dt));
     if (this.rotationAxis.x == 0 && this.rotationAxis.y == 0 && this.rotationAxis.z == 0)
@@ -1559,8 +1559,9 @@ var Player = class extends Shape {
     this.setRotation([Quat.makeFromAxis(angle, UP_VEC2), Quat.makeFromAxis(Math.PI, this.rotationAxis)]);
     const perp = this.rot.rotate(Vec3.make(0, 1, 0));
     this.cDir = perp;
+    const speed = shiftPressed ? 3 : 1;
     if (moveVec.y > 0)
-      this.vel = Vec3.add(this.vel, Vec3.multScalar(perp, 5e-4 * dt));
+      this.vel = Vec3.add(this.vel, Vec3.multScalar(perp, 5e-4 * dt * speed));
     this.vel.x *= 0.99;
     this.vel.z *= 0.99;
     const subY = Vec3.sub(Vec3.make(0, 1, 0), this.rotationAxis);
@@ -2189,6 +2190,7 @@ var Game = class {
   mouseMoveVector;
   lastMousePos;
   isShiftPressed;
+  boostTimer;
   light;
   Fov;
   pCamera;
@@ -2208,6 +2210,7 @@ var Game = class {
     this.vaos = {};
     this.shaders = {};
     this.chunk_pos = Vec2.make(0, 0);
+    this.boostTimer = 0;
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1, 0.1, 80);
     gl.clearColor(0.08, 0.08, 0.08, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -2261,34 +2264,40 @@ var Game = class {
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
   }
   handleKeyDown(e) {
-    if (e.key == "o") {
+    const ch = e.key.charAt(0).toLowerCase();
+    if (ch == "o") {
       this.isRunning = false;
       throw new Error("Stopped the program");
     }
-    if (e.key == "n")
+    if (e.key == "Shift") {
       this.isShiftPressed = true;
-    if (e.key == "w")
+      return;
+    }
+    if (ch == "w")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
-    if (e.key == "a")
+    if (ch == "a")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(-1, 0, 0));
-    if (e.key == "d")
+    if (ch == "d")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
-    if (e.key == "s")
+    if (ch == "s")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
   handleKeyUp(e) {
-    if (e.key == "n")
+    const ch = e.key.charAt(0).toLowerCase();
+    if (e.key == "Shift") {
       this.isShiftPressed = false;
-    if (e.key == "w")
+      return;
+    }
+    if (ch == "w")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, -1));
-    if (e.key == "a")
+    if (ch == "a")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(-1, 0, 0));
-    if (e.key == "d")
+    if (ch == "d")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
-    if (e.key == "s")
+    if (ch == "s")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
@@ -2300,13 +2309,19 @@ var Game = class {
   }
   update(gl, dt) {
     this.time += dt;
+    const maxBoostTimer = 400;
+    if (this.boostTimer >= 0)
+      this.boostTimer += this.isShiftPressed ? dt : -dt * 0.5;
+    if (this.boostTimer > maxBoostTimer) this.boostTimer = -maxBoostTimer;
+    if (this.boostTimer < 0) this.boostTimer += dt * 0.5;
+    console.log("boostTimer: ", this.boostTimer);
     if (this.moveVector.y > 0)
-      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), 1, this.time, 0.1, 0.4);
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), 1, this.time, 0.1, 0.9);
     if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
       this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
     }
     this.total_time += dt;
-    this.player.update(this.moveVector, this.pCamera, dt);
+    this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
@@ -2329,7 +2344,7 @@ var Game = class {
     shader.unbind(gl);
   }
   draw(gl) {
-    gl.clearColor(0.08, 0.08, 0.08, 1);
+    gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);

@@ -51,7 +51,9 @@ export class Game {
   moveVector : Vec3;
   mouseMoveVector : Vec2;
   lastMousePos : Vec2;
+
   isShiftPressed : boolean;
+  boostTimer : number;
 
   light : Light;
 
@@ -76,6 +78,7 @@ export class Game {
     this.vaos = {};
     this.shaders = {};
     this.chunk_pos = Vec2.make(0.0, 0.0);
+    this.boostTimer = 0.0;
 
     this.pCamera = new Camera(Vec3.make(0, 1, 5), width, height, 1.0, 0.1, 80);
     
@@ -146,37 +149,46 @@ export class Game {
   }
 
   handleKeyDown(e : KeyboardEvent){
-    if (e.key == "o"){
+    const ch = e.key.charAt(0).toLowerCase();
+    if (ch == "o"){
       this.isRunning = false;
       throw new Error("Stopped the program");
     }
 
-    if (e.key == "n")
+    if (e.key == "Shift"){
       this.isShiftPressed = true;
+      return;
+    }
 
-    if (e.key == "w")
+    if (ch == "w")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, -1));
-    if (e.key == "a")
+    if (ch == "a")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(-1, 0, 0));
-    if (e.key == "d")
+    if (ch == "d")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
-    if (e.key == "s")
+    if (ch == "s")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
+
     if (e.code == "Space") 
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
 
   handleKeyUp(e : KeyboardEvent){
-    if (e.key == "n")
+    const ch = e.key.charAt(0).toLowerCase();
+    if (e.key == "Shift"){
       this.isShiftPressed = false;
-    if (e.key == "w")
+      return;
+    }
+
+
+    if (ch == "w")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, -1));
-    if (e.key == "a")
+    if (ch == "a")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(-1, 0, 0));
-    if (e.key == "d")
+    if (ch == "d")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(1, 0, 0));
-    if (e.key == "s")
+    if (ch == "s")
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space") 
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
@@ -191,16 +203,23 @@ export class Game {
 
   update(gl : WebGL2RenderingContext, dt : number) {
     this.time += dt;
+    const maxBoostTimer = 400;
+    if (this.boostTimer >= 0)
+      this.boostTimer += this.isShiftPressed ? dt : -dt*0.5;
+    if (this.boostTimer > maxBoostTimer) this.boostTimer = -maxBoostTimer;
+    if (this.boostTimer < 0.0) this.boostTimer += dt*0.5;
+    console.log("boostTimer: ", this.boostTimer);
+
     //if (Math.floor(this.time)%100 == 0)
     //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
     if (this.moveVector.y > 0)
-      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), 1.0, this.time, 0.1, 0.4);
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), 1.0, this.time, 0.1, 0.9);
     if (Math.random() > (1.0-SPAWN_ASTEROID_PROB)){
       this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
     }
 
     this.total_time += dt;
-    this.player.update(this.moveVector, this.pCamera, dt);
+    this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
@@ -234,7 +253,7 @@ export class Game {
 
   draw(gl : WebGL2RenderingContext ) {
 
-    gl.clearColor(0.08, 0.08, 0.08, 1.0);
+    gl.clearColor(0.00, 0.00, 0.00, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
