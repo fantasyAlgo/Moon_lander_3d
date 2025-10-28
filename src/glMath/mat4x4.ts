@@ -26,6 +26,7 @@ export class Mat4x4 {
 
   determinant( i : number = 0, jNotToCheck : number[] = []) : number{
     if (i >= 4) return 1.0;
+
     let det = 0;
     for (let k = 0; k < 4; k++) {
       if (!jNotToCheck.includes(k)){
@@ -34,6 +35,12 @@ export class Mat4x4 {
       }
     }
     return det;
+  }
+  copy(){
+    let m = Mat4x4.identity();
+    for (let i = 0; i < 16; i++) 
+      m.values[i] = this.values[i];
+    return m;
   }
 
 
@@ -100,14 +107,24 @@ export class Mat4x4 {
       xAxis.z, yAxis.z, zAxis.z, 0,
       -Vec3.dot(xAxis, eye), -Vec3.dot(yAxis, eye), -Vec3.dot(zAxis, eye), 1.0,
     ]);
-    const values = new Float32Array([
-      xAxis.x, xAxis.y, xAxis.z, 0.0, // X column
-      yAxis.x, yAxis.y, yAxis.z, 0.0, // Y column
-      zAxis.x, zAxis.y, zAxis.z, 0.0, // Z column
-      -Vec3.dot(xAxis, eye), -Vec3.dot(yAxis, eye), -Vec3.dot(zAxis, eye), 1.0 // translation column
+    return new Mat4x4(values2);
+  }
+  static LookAtRHInv(eye : Vec3, target : Vec3, up : Vec3) : Mat4x4{
+    const zAxis = Vec3.normalize(Vec3.sub(eye, target));
+    const xAxis = Vec3.normalize(Vec3.cross(up, zAxis));
+    const yAxis = Vec3.cross(zAxis, xAxis);
+    const values2 = new Float32Array([
+      xAxis.x, xAxis.y, xAxis.z, 0,
+      yAxis.x, yAxis.y, yAxis.z, 0,
+      zAxis.x, zAxis.y, zAxis.z, 0,
+      Vec3.dot(xAxis, eye), Vec3.dot(yAxis, eye), Vec3.dot(zAxis, eye), 1.0,
     ]);
     return new Mat4x4(values2);
   }
+
+
+
+
   static perspective(aspect_ratio : number, fov : number, zNear : number, zFar : number ) : Mat4x4 {
     const fovFactor : number = 1.0/Math.tan(fov/2.0);
     const normFactor : number = 1.0/(zFar - zNear);
@@ -194,7 +211,94 @@ export class Mat4x4 {
   }
 
 
+  inverse() : Mat4x4 {
+    let a00 = this.values[0],
 
+      a01 = this.values[1],
+
+      a02 = this.values[2],
+
+      a03 = this.values[3];
+
+    let a10 = this.values[4],
+
+      a11 = this.values[5],
+
+      a12 = this.values[6],
+
+      a13 = this.values[7];
+
+    let a20 = this.values[8],
+
+      a21 = this.values[9],
+
+      a22 = this.values[10],
+
+      a23 = this.values[11];
+
+    let a30 = this.values[12],
+
+      a31 = this.values[13],
+
+      a32 = this.values[14],
+
+      a33 = this.values[15];
+
+    let b00 = a00 * a11 - a01 * a10;
+
+    let b01 = a00 * a12 - a02 * a10;
+
+    let b02 = a00 * a13 - a03 * a10;
+
+    let b03 = a01 * a12 - a02 * a11;
+
+    let b04 = a01 * a13 - a03 * a11;
+
+    let b05 = a02 * a13 - a03 * a12;
+
+    let b06 = a20 * a31 - a21 * a30;
+
+    let b07 = a20 * a32 - a22 * a30;
+
+    let b08 = a20 * a33 - a23 * a30;
+
+    let b09 = a21 * a32 - a22 * a31;
+
+    let b10 = a21 * a33 - a23 * a31;
+
+    let b11 = a22 * a33 - a23 * a32;
+
+    // Calculate the determinant
+
+    let det =
+
+      b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+
+    if (!det) {
+      return Mat4x4.identity(1);
+    }
+
+    det = 1.0 / det;
+    let out : Mat4x4 = Mat4x4.identity();
+    out.values[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+    out.values[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+    out.values[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+    out.values[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+    out.values[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+    out.values[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+    out.values[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+    out.values[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+    out.values[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+    out.values[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+    out.values[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+    out.values[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+    out.values[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+    out.values[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+    out.values[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+    out.values[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+
+    return out;
+  }
 
 
 }

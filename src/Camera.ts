@@ -9,6 +9,7 @@ export class Camera {
   forward : Vec3;
   perpective : Mat4x4;
   lookAtMatrix : Mat4x4;
+
   constructor(initial_pos : Vec3, width : number, height : number, Fov : number, zNear : number, zFar : number){
     this.perpective = Mat4x4.perspective(height/width, Fov, zNear, zFar);
     this.pos = initial_pos;

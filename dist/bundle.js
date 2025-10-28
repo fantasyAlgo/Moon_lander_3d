@@ -144,6 +144,11 @@ function makeHeightTextureFromData(gl, data, width, height) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   return texture;
 }
+function mapBitmapToCubeMap(gl, texture, data, target) {
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+  gl.texImage2D(target, 0, gl.RGBA, data.width, data.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+  return texture;
+}
 
 // src/helpers/shaderProgram.ts
 var ShaderProgram = class {
@@ -774,6 +779,20 @@ var PLANE_INDICES = new Uint16Array([
   3
   // top
 ]);
+var QUAD_VERTICES = new Float32Array([
+  -1,
+  -1,
+  1,
+  -1,
+  -1,
+  1,
+  -1,
+  1,
+  1,
+  -1,
+  1,
+  1
+]);
 function getFloorVertices(perlin3d, chunk) {
   let lst = [];
   const W = perlin3d.grid_width;
@@ -850,6 +869,12 @@ var Mat4x4 = class _Mat4x4 {
       }
     }
     return det;
+  }
+  copy() {
+    let m = _Mat4x4.identity();
+    for (let i = 0; i < 16; i++)
+      m.values[i] = this.values[i];
+    return m;
   }
   static identity(v = 1) {
     return new _Mat4x4(new Float32Array([
@@ -947,27 +972,29 @@ var Mat4x4 = class _Mat4x4 {
       -Vec3.dot(zAxis, eye),
       1
     ]);
-    const values = new Float32Array([
+    return new _Mat4x4(values2);
+  }
+  static LookAtRHInv(eye, target, up) {
+    const zAxis = Vec3.normalize(Vec3.sub(eye, target));
+    const xAxis = Vec3.normalize(Vec3.cross(up, zAxis));
+    const yAxis = Vec3.cross(zAxis, xAxis);
+    const values2 = new Float32Array([
       xAxis.x,
       xAxis.y,
       xAxis.z,
       0,
-      // X column
       yAxis.x,
       yAxis.y,
       yAxis.z,
       0,
-      // Y column
       zAxis.x,
       zAxis.y,
       zAxis.z,
       0,
-      // Z column
-      -Vec3.dot(xAxis, eye),
-      -Vec3.dot(yAxis, eye),
-      -Vec3.dot(zAxis, eye),
+      Vec3.dot(xAxis, eye),
+      Vec3.dot(yAxis, eye),
+      Vec3.dot(zAxis, eye),
       1
-      // translation column
     ]);
     return new _Mat4x4(values2);
   }
@@ -1097,6 +1124,47 @@ var Mat4x4 = class _Mat4x4 {
       0,
       1
     ]));
+  }
+  inverse() {
+    let a00 = this.values[0], a01 = this.values[1], a02 = this.values[2], a03 = this.values[3];
+    let a10 = this.values[4], a11 = this.values[5], a12 = this.values[6], a13 = this.values[7];
+    let a20 = this.values[8], a21 = this.values[9], a22 = this.values[10], a23 = this.values[11];
+    let a30 = this.values[12], a31 = this.values[13], a32 = this.values[14], a33 = this.values[15];
+    let b00 = a00 * a11 - a01 * a10;
+    let b01 = a00 * a12 - a02 * a10;
+    let b02 = a00 * a13 - a03 * a10;
+    let b03 = a01 * a12 - a02 * a11;
+    let b04 = a01 * a13 - a03 * a11;
+    let b05 = a02 * a13 - a03 * a12;
+    let b06 = a20 * a31 - a21 * a30;
+    let b07 = a20 * a32 - a22 * a30;
+    let b08 = a20 * a33 - a23 * a30;
+    let b09 = a21 * a32 - a22 * a31;
+    let b10 = a21 * a33 - a23 * a31;
+    let b11 = a22 * a33 - a23 * a32;
+    let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+    if (!det) {
+      return _Mat4x4.identity(1);
+    }
+    det = 1 / det;
+    let out = _Mat4x4.identity();
+    out.values[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+    out.values[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+    out.values[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+    out.values[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+    out.values[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+    out.values[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+    out.values[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+    out.values[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+    out.values[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+    out.values[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+    out.values[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+    out.values[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+    out.values[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+    out.values[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+    out.values[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+    out.values[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+    return out;
   }
 };
 
@@ -2169,6 +2237,80 @@ var MAX_IMPACT_VEL = levels[1];
 var MIN_ALIGNMENT = levels[2];
 var INITIAL_FUEL = levels[3];
 
+// src/Cubemap.ts
+var Cubemap = class {
+  constructor(gl, program, vbo, images, prefix) {
+    this.program = program;
+    this.setUpTexture(gl, images, prefix);
+    this.setUpVao(gl, vbo);
+    this.program.bind(gl);
+    gl.activeTexture(gl.TEXTURE0);
+    const samplerPos = this.program.getUniform(gl, "uSkyBox");
+    gl.uniform1i(samplerPos, 0);
+  }
+  vao;
+  texture;
+  setUpTexture(gl, images, prefix) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+    const targets = [
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_Z,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+      gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+      gl.TEXTURE_CUBE_MAP_POSITIVE_Z
+    ];
+    for (let i = 1; i <= 6; i++) {
+      const url = prefix.concat(i.toString());
+      console.log("url: ", url);
+      mapBitmapToCubeMap(gl, texture, images[url], targets[i - 1]);
+    }
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    this.texture = texture;
+  }
+  setUpVao(gl, vbo) {
+    this.program.bind(gl);
+    const vao = gl.createVertexArray();
+    if (!vao) throw new Error("A problem occurred with the creation of the VAO");
+    gl.bindVertexArray(vao);
+    const posLoc = this.program.getAttrib(gl, "aPos");
+    gl.enableVertexAttribArray(posLoc);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.vertexAttribPointer(
+      posLoc,
+      2,
+      gl.FLOAT,
+      false,
+      2 * Float32Array.BYTES_PER_ELEMENT,
+      0
+    );
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindVertexArray(null);
+    this.vao = vao;
+    this.program.unbind(gl);
+  }
+  update(gl, pCamera) {
+    this.program.bind(gl);
+    const loc = this.program.getUniform(gl, "matViewProjectionInverse");
+    const view = pCamera.lookAtMatrix.copy();
+    view.values[12] = 0;
+    view.values[13] = 0;
+    view.values[14] = 0;
+    const matrix = Mat4x4.multMatrix(view, pCamera.perpective);
+    const inv = matrix.inverse();
+    gl.uniformMatrix4fv(loc, false, inv.values);
+  }
+  draw(gl) {
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture);
+    this.program.bind(gl);
+    gl.bindVertexArray(this.vao);
+    gl.drawArrays(gl.TRIANGLES, 0, 1 * 6);
+    gl.bindVertexArray(null);
+  }
+};
+
 // src/Game.ts
 var Game = class {
   time = 0;
@@ -2199,7 +2341,8 @@ var Game = class {
   player;
   pSystem;
   aSystem;
-  constructor(gl, width, height, shaders, models) {
+  skybox;
+  constructor(gl, width, height, shaders, models, textures) {
     this.width = width;
     this.height = height;
     this.total_time = 0;
@@ -2216,13 +2359,13 @@ var Game = class {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     const cubeVertices = createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW);
-    const planeVertices = createBufferData(gl, PLANE_VERTICES, gl.STATIC_DRAW);
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
-    const planeIndices = createStaticIndexBuffer(gl, PLANE_INDICES);
+    const quodVertices = createBufferData(gl, QUAD_VERTICES, gl.STATIC_DRAW);
     this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
     this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
     this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
     this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
+    this.shaders["cubemap"] = new ShaderProgram(gl, shaders["vCubemap"], shaders["fCubemap"]);
     this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
     this.shaders["main"].bind(gl);
     console.log("error: ", gl.getError());
@@ -2262,6 +2405,7 @@ var Game = class {
     gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e5);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
+    this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
   }
   handleKeyDown(e) {
     const ch = e.key.charAt(0).toLowerCase();
@@ -2325,6 +2469,7 @@ var Game = class {
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
+    this.skybox.update(gl, this.pCamera);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
     this.light.updateWorldData();
     this.player.updateWorldData();
@@ -2363,6 +2508,8 @@ var Game = class {
     this.player.draw(gl);
     this.pSystem.draw(gl);
     this.aSystem.draw(gl);
+    gl.depthFunc(gl.LEQUAL);
+    this.skybox.draw(gl);
     gl.finish();
     this.perlinFloor.updateSwaps(gl);
     const error = gl.getError();
@@ -2378,6 +2525,11 @@ async function loadText(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to load ${url}`);
   return await response.text();
+}
+async function loadImage(url) {
+  const blob = await fetch(url).then((r) => r.blob());
+  const bitmap = await createImageBitmap(blob);
+  return bitmap;
 }
 function saveInput() {
   const weightButton = document.getElementById("weight");
@@ -2395,7 +2547,7 @@ function saveInput() {
 }
 var game;
 var canvas;
-function initGame(shaders, models) {
+function initGame(shaders, models, textures) {
   console.log(models["lander"]);
   canvas = document.getElementById("demo-canvas");
   if (!canvas) {
@@ -2409,7 +2561,7 @@ function initGame(shaders, models) {
   }
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  game = new Game(gl, canvas.width, canvas.height, shaders, models);
+  game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
   let lastTime = performance.now();
   let dt;
   function step() {
@@ -2434,7 +2586,9 @@ async function getShaders() {
     "vFloor",
     "fFloor",
     "fParticle",
-    "vParticle"
+    "vParticle",
+    "vCubemap",
+    "fCubemap"
   ];
   let object = {};
   for (let i = 0; i < shader_names.length; i++)
@@ -2450,6 +2604,27 @@ async function getModels() {
   let object = {};
   for (let i = 0; i < models_names.length; i++)
     object[models_names[i]] = await loadObj(model_source.concat("/", models_names[i], ".obj"));
+  return object;
+}
+async function getImagesAsBitmap() {
+  const model_source = "../images";
+  const image_names = [
+    //"cubemap1",
+    //"cubemap2",
+    //"cubemap3",
+    //"cubemap4",
+    //"cubemap5",
+    //"cubemap6",
+    "random1",
+    "random2",
+    "random3",
+    "random4",
+    "random5",
+    "random6"
+  ];
+  let object = {};
+  for (let i = 0; i < image_names.length; i++)
+    object[image_names[i]] = await loadImage(model_source.concat("/", image_names[i], ".png"));
   return object;
 }
 var loadButton = document.getElementById("loadButton");
@@ -2468,11 +2643,12 @@ async function loadGame() {
     saveInput();
     let shaders = await getShaders();
     let models = await getModels();
+    let textures = await getImagesAsBitmap();
     await new Promise((resolve) => setTimeout(resolve, 300));
     gameContainer.classList.add("active");
     await new Promise((resolve) => setTimeout(resolve, 100));
     landingPage.classList.add("hidden");
-    initGame(shaders, models);
+    initGame(shaders, models, textures);
   } catch (error) {
     console.error("Error loading game:", error);
     progressText.textContent = "Error loading game";

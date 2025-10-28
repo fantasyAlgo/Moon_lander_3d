@@ -117,12 +117,6 @@ export function loadModel (gl : WebGL2RenderingContext,
 }
 
 
-
-
-
-
-
-
 export function makeRandomMatrix( width: number, height : number) : Float32Array{
   let lst : number[] = [];
   for (let i = 0; i < width*height; i++) {
@@ -150,12 +144,22 @@ export function makeHeightTextureFromData(gl : WebGL2RenderingContext, data : Fl
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
+
+
   return texture;
 }
 
 
-
-
+export function mapBitmapToCubeMap(gl : WebGL2RenderingContext, texture : WebGLTexture, data : ImageBitmap, target : GLenum){
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+  gl.texImage2D(target, 0, gl.RGBA, data.width, data.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+  //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  //gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+  return texture;
+}
 
 
 

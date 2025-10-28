@@ -1,6 +1,6 @@
 import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createStaticBufferData, createStaticIndexBuffer, loadModel, makeHeightTextureFromData, makeRandomMatrix, showError } from "./helpers/glHelpers.ts";
 import { ShaderProgram } from "./helpers/shaderProgram";
-import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, PLANE_INDICES, PLANE_VERTICES, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./helpers/loadPerlinFloor.ts"
+import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, PLANE_INDICES, PLANE_VERTICES, QUAD_VERTICES, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./helpers/loadPerlinFloor.ts"
 
 import {Mat4x4 } from "./glMath/mat4x4.ts"
 import {Vec3 } from "./glMath/vec3.ts"
@@ -18,6 +18,7 @@ import { Collision } from "./Collision.ts";
 import { ParticleSystem } from "./ParticleSystem.ts";
 import { AsteroidHandler } from "./Asteroids.ts";
 import { SPAWN_ASTEROID_PROB } from "./Settings.ts";
+import { Cubemap } from "./Cubemap.ts";
 
 
 
@@ -66,8 +67,9 @@ export class Game {
   player : Player;
   pSystem : ParticleSystem;
   aSystem : AsteroidHandler;
+  skybox : Cubemap;
 
-  constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object){
+  constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object, textures : Object){
     this.width = width;
     this.height = height;
     this.total_time = 0.0
@@ -87,16 +89,15 @@ export class Game {
     gl.enable(gl.DEPTH_TEST);
 
     const cubeVertices =  createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW); 
-    const planeVertices = createBufferData(gl, PLANE_VERTICES, gl.STATIC_DRAW);
-
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
-    const planeIndices = createStaticIndexBuffer(gl, PLANE_INDICES);
+    const quodVertices = createBufferData(gl, QUAD_VERTICES, gl.STATIC_DRAW);
 
 
     this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
     this.shaders["light"] = new ShaderProgram(gl, shaders["vLight"], shaders["fLight"]);
     this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
     this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
+    this.shaders["cubemap"] = new ShaderProgram(gl, shaders["vCubemap"], shaders["fCubemap"]);
 
     this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
     this.shaders["main"].bind(gl);
@@ -120,16 +121,6 @@ export class Game {
     gl.viewport(0, 0, this.width, this.height);
 
     this.shapes = [];
-    /*
-    for (let i = -20; i < 20; i++) {
-      for (let j = -20; j < 20; j++) {
-        this.shapes.push(new Shape(
-          Vec3.make(i, this.perlinFloor.getValue(this.perlin3d, i, j), j),
-          Vec3.make(0.2, 0.2, 0.2), this.shaders["main"], this.vaos["sphere"], models["sphere"].indices.length
-        ));
-      }
-    }*/
-
 
     this.player = new Player(
       Vec3.make(0, 0, 0), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 
@@ -145,7 +136,7 @@ export class Game {
 
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 100000);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
-    
+    this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
   }
 
   handleKeyDown(e : KeyboardEvent){
@@ -218,11 +209,13 @@ export class Game {
       this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
     }
 
+
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
+    this.skybox.update(gl, this.pCamera);
     //updateEntitiesPhysics([this.player], dt);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
 
@@ -278,6 +271,9 @@ export class Game {
     this.player.draw(gl);
     this.pSystem.draw(gl);
     this.aSystem.draw(gl);
+
+    gl.depthFunc(gl.LEQUAL);
+    this.skybox.draw(gl);
     
     gl.finish();
     this.perlinFloor.updateSwaps(gl);

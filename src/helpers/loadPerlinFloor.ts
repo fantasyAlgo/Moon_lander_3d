@@ -87,6 +87,16 @@ export const PLANE_INDICES = new Uint16Array([
 ]);
 
 
+export const QUAD_VERTICES = new Float32Array([
+  -1, -1, 
+  1, -1,
+  -1, 1,
+  -1, 1,
+  1, -1,
+  1, 1,
+]);
+
+
 export function getFloorVertices(perlin3d : Perlin3d, chunk : Vec2) : Float32Array {
   let lst : CoupledFloorVertex[] = [];
   const W : number = perlin3d.grid_width;

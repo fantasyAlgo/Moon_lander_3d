@@ -1,15 +1,22 @@
 import { Game } from "./Game.ts";
 import { showError } from "./helpers/glHelpers.ts";
-import { vShaderCode } from "./vertexShader.ts";
-import { fShaderCode } from "./fragmentShader.ts";
 import { Mat4x4 } from "./glMath/mat4x4.ts";
-import { loadObj } from "./helpers/objLoader.ts";
+import { loadObj, ModelData } from "./helpers/objLoader.ts";
 
 async function loadText(url: string): Promise<string> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to load ${url}`);
   return await response.text();
 }
+
+
+
+async function loadImage(url : string) : Promise<ImageBitmap> {
+  const blob = await fetch(url).then(r => r.blob());
+  const bitmap = await createImageBitmap(blob);
+  return bitmap;
+}
+
 
 
 function saveInput() {
@@ -33,7 +40,7 @@ function saveInput() {
 let game : Game;
 let canvas : HTMLCanvasElement;
 
-function initGame(shaders : Object, models : Object){
+function initGame(shaders : Object, models : Object, textures : Object){
   console.log(models["lander"]);
   canvas = document.getElementById("demo-canvas") as HTMLCanvasElement;
   if (!canvas){
@@ -49,7 +56,7 @@ function initGame(shaders : Object, models : Object){
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
-  game = new Game(gl, canvas.width, canvas.height, shaders, models);
+  game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
   let lastTime = performance.now();
   let dt : number;
 
@@ -68,14 +75,14 @@ function initGame(shaders : Object, models : Object){
   step();
 }
 
-async function getShaders(){
+async function getShaders() {
     const shader_source = "src/shaders";
 
     const shader_names = [
-      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor", "fParticle", "vParticle"
+      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor", "fParticle", "vParticle", "vCubemap", "fCubemap"
     ]; 
 
-    let object = {};
+    let object: { [Name: string]: string} = {};
     for (let i = 0; i < shader_names.length; i++)
       object[shader_names[i]] = await loadText(shader_source.concat("/", shader_names[i], ".glsl"));
     return object;
@@ -85,11 +92,32 @@ async function getModels(){
   const models_names = [
     "lander", "sphere"
   ];
-  let object = {};
+  let object: { [Name: string]: ModelData} = {};
   for (let i = 0; i < models_names.length; i++)
     object[models_names[i]] = await loadObj(model_source.concat("/", models_names[i], ".obj"));
   return object;
+}
 
+async function getImagesAsBitmap(){
+  const model_source = "../images";
+  const image_names = [
+    //"cubemap1",
+    //"cubemap2",
+    //"cubemap3",
+    //"cubemap4",
+    //"cubemap5",
+    //"cubemap6",
+    "random1",
+    "random2",
+    "random3",
+    "random4",
+    "random5",
+    "random6",
+  ];
+  let object: { [Name: string]: ImageBitmap} = {};
+  for (let i = 0; i < image_names.length; i++)
+    object[image_names[i]] = await loadImage(model_source.concat("/", image_names[i], ".png"));
+  return object;
 }
 
 
@@ -113,6 +141,7 @@ async function loadGame() {
       saveInput();
       let shaders = await getShaders();
       let models = await getModels();
+      let textures = await getImagesAsBitmap();
 
       await new Promise(resolve => setTimeout(resolve, 300));
       gameContainer.classList.add('active');
@@ -120,7 +149,7 @@ async function loadGame() {
       await new Promise(resolve => setTimeout(resolve, 100));
       landingPage.classList.add('hidden');
 
-      initGame(shaders, models);
+      initGame(shaders, models, textures);
     } catch (error) {
         console.error('Error loading game:', error);
         progressText.textContent = 'Error loading game';
