@@ -34,9 +34,9 @@ export class Shape {
     this.rot = Quat.normalize(q);
   }
 
-  updateWorldData() : void {
+  updateWorldData(displacement : number = 11) : void {
     let result : Vec3[] = [];
-    for (let i = 0; i < this.vertices.length; i+=11) {
+    for (let i = 0; i < this.vertices.length; i+=displacement) {
       const v : Vec4 = Vec4.make(this.vertices[i], this.vertices[i+1], this.vertices[i+2], 1.0);
       const rV : Vec4 = Mat4x4.multVec4(this.model, v);
       result.push(rV.convertToVec3());

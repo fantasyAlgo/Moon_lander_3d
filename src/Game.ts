@@ -205,7 +205,7 @@ export class Game {
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), 1.0, this.time, 0.1, 0.9);
     if (Math.random() > (1.0-SPAWN_ASTEROID_PROB)){
-      this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
+      this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z));
     }
 
 
@@ -213,7 +213,7 @@ export class Game {
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.time, dt);
     this.skybox.update(gl, this.pCamera);
     //updateEntitiesPhysics([this.player], dt);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
@@ -224,9 +224,13 @@ export class Game {
     this.mouseMoveVector = Vec2.make(0,0);
 
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
-    if (coll.collided){
+    if (coll.collided)
       this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 0.001;
-    }
+
+    //const lightColl = Collision.checkShapeCollision(this.player, this.light);
+    //if (lightColl.collided) console.log("lightColl");
+
+
 
     this.pSystem.update(gl, this.time);
 
@@ -265,7 +269,7 @@ export class Game {
     });
 
 
-    //this.light.draw(gl);
+    this.light.draw(gl);
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
     this.player.draw(gl);
     this.pSystem.draw(gl);

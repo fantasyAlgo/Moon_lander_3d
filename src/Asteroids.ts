@@ -8,6 +8,7 @@ import { Perlin3d } from "./helpers/Perlin3d";
 import { ShaderProgram } from "./helpers/shaderProgram";
 import { ParticleSystem } from "./ParticleSystem";
 import { PerlinFloor } from "./PerlinFloor";
+import { Player } from "./Player";
 import { Shape } from "./Shape";
 
 
@@ -75,18 +76,35 @@ export class AsteroidHandler {
 
     }
   }
-  update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, time : number, dt : number){
+  checkIfNearPlayer(idx : number, player : Player){
+    const pos = this.asteroids[idx].pos;
+    return Vec3.distance(pos, player.pos) < (this.asteroids[idx].scale.x+3);
+  }
+  killAsteroid(i : number, particleSystem : ParticleSystem, time : number){
+    for (let j = 0; j < 100; j++) {
+        particleSystem.add(this.asteroids[i].pos, Vec3.make(0,0,0), 2.0*this.asteroids[i].scale.x, time, 1, 2);
+    }
+    this.asteroids.splice(i, 1);
+  }
+  update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, time : number, dt : number){
     for (let i = 0; i < this.asteroids.length; i++) {
-      this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25*dt));
-      this.asteroids[i].updateWorldData();
+      this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25*dt)); 
+      this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2.0*this.asteroids[i].scale.x, time, 0.2, 1.0);
+
+      if (this.checkIfNearPlayer(i, player)){
+        const coll = Collision.checkShapeCollision(this.asteroids[i], player);
+        if (coll.collided){
+          player.dead = true;
+          this.killAsteroid(i, particleSystem, time);
+          i--;
+          continue;
+        }
+      }
       if (this.asteroids[i].pos.y > 25) continue;
       const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
       if (coll.collided){
-        for (let j = 0; j < 100; j++) {
-          particleSystem.add(this.asteroids[i].pos, Vec3.make(0,0,0), 2.0*this.asteroids[i].scale.x, time, 1, 2);
-        }
-       this.asteroids.splice(i, 1);
+        this.killAsteroid(i, particleSystem, time);
         i--;
       }
     }

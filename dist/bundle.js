@@ -1326,9 +1326,9 @@ var Shape = class {
       q = Quat.hamiltonProduct(q, quaterions[i]);
     this.rot = Quat.normalize(q);
   }
-  updateWorldData() {
+  updateWorldData(displacement = 11) {
     let result = [];
-    for (let i = 0; i < this.vertices.length; i += 11) {
+    for (let i = 0; i < this.vertices.length; i += displacement) {
       const v = Vec4.make(this.vertices[i], this.vertices[i + 1], this.vertices[i + 2], 1);
       const rV = Mat4x4.multVec4(this.model, v);
       result.push(rV.convertToVec3());
@@ -1631,6 +1631,8 @@ var Player = class extends Shape {
     this.camera_dist = camera_dist;
   }
   cDir = Vec3.make(0, 0, 0);
+  dead = false;
+  fuel = 1e5;
   update(moveVec, camera, shiftPressed, dt) {
     let sub = Vec3.sub(Vec3.make(-moveVec.x * 0.5, 0, -moveVec.z * 0.5), this.rotationAxis);
     this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014 * dt));
@@ -1955,7 +1957,6 @@ var ParticleSystem = class {
     rPos.multScalar(pos_randomness);
     iPos = Vec3.add(iPos, rPos);
     dir = Vec3.add(dir, rDir);
-    console.log("dir: ", dir.x, dir.y, dir.z);
     this.toSpawnParticles.push(iPos.x, iPos.y, iPos.z, dir.x, dir.y, dir.z, cTime, size);
   }
   update(gl, time) {
@@ -2204,18 +2205,34 @@ var AsteroidHandler = class {
       this.verticesVao.push(s[2]);
     }
   }
-  update(particleSystem, perlin, perlinFloor, time, dt) {
+  checkIfNearPlayer(idx, player) {
+    const pos = this.asteroids[idx].pos;
+    return Vec3.distance(pos, player.pos) < this.asteroids[idx].scale.x + 10;
+  }
+  killAsteroid(i, particleSystem, time) {
+    for (let j = 0; j < 100; j++) {
+      particleSystem.add(this.asteroids[i].pos, Vec3.make(0, 0, 0), 2 * this.asteroids[i].scale.x, time, 1, 2);
+    }
+    this.asteroids.splice(i, 1);
+  }
+  update(particleSystem, perlin, perlinFloor, player, time, dt) {
     for (let i = 0; i < this.asteroids.length; i++) {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25 * dt));
-      this.asteroids[i].updateWorldData();
+      this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2 * this.asteroids[i].scale.x, time, 0.2, 1);
+      if (this.checkIfNearPlayer(i, player)) {
+        const coll2 = Collision.checkShapeCollision(this.asteroids[i], player);
+        if (coll2.collided) {
+          player.dead = true;
+          this.killAsteroid(i, particleSystem, time);
+          i--;
+          continue;
+        }
+      }
       if (this.asteroids[i].pos.y > 25) continue;
       const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
       if (coll.collided) {
-        for (let j = 0; j < 100; j++) {
-          particleSystem.add(this.asteroids[i].pos, Vec3.make(0, 0, 0), 2 * this.asteroids[i].scale.x, time, 1, 2);
-        }
-        this.asteroids.splice(i, 1);
+        this.killAsteroid(i, particleSystem, time);
         i--;
       }
     }
@@ -2474,22 +2491,21 @@ var Game = class {
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), 1, this.time, 0.1, 0.9);
     if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
-      this.aSystem.add(Vec3.make(this.player.pos.x, 200, this.player.pos.z));
+      this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z));
     }
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.time, dt);
     this.skybox.update(gl, this.pCamera);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
     this.light.updateWorldData();
     this.player.updateWorldData();
     this.mouseMoveVector = Vec2.make(0, 0);
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
-    if (coll.collided) {
+    if (coll.collided)
       this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 1e-3;
-    }
     this.pSystem.update(gl, this.time);
   }
   setShaderUniform(gl, shader, matViewProj) {
@@ -2516,6 +2532,7 @@ var Game = class {
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
+    this.light.draw(gl);
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
     this.player.draw(gl);
     this.pSystem.draw(gl);
