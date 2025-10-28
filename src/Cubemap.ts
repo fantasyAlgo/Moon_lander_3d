@@ -37,7 +37,6 @@ export class Cubemap {
 ]
     for (let i = 1; i <= 6; i++) {
       const url = prefix.concat(i.toString());
-      console.log("url: ", url);
       mapBitmapToCubeMap(gl, texture, images[url], targets[i-1]);
     }
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);

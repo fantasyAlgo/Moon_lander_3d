@@ -1602,10 +1602,24 @@ var PerlinFloor = class {
     }
     this.shader.bind(gl);
   }
-  draw(gl) {
-    this.shapes.forEach((element) => {
-      element.draw(gl);
-    });
+  draw(gl, cameraPos, forward) {
+    const length = this.nChunks * this.nChunks;
+    const playerIndx = Math.floor(length / 2);
+    for (let i = 0; i < length; i++) {
+      const element = this.shapes[i];
+      if (i == playerIndx) {
+        element.draw(gl);
+        continue;
+      }
+      const cPos = Vec3.make(this.cChunk.x + element.pos.x, element.pos.y, this.cChunk.y + element.pos.z);
+      const diff2 = Vec3.normalize(Vec3.make(
+        cPos.x - cameraPos.x,
+        cPos.y - cameraPos.y,
+        cPos.z - cameraPos.z
+      ));
+      if (Vec3.dot(forward, diff2) > 0)
+        element.draw(gl);
+    }
   }
 };
 
@@ -1941,6 +1955,7 @@ var ParticleSystem = class {
     rPos.multScalar(pos_randomness);
     iPos = Vec3.add(iPos, rPos);
     dir = Vec3.add(dir, rDir);
+    console.log("dir: ", dir.x, dir.y, dir.z);
     this.toSpawnParticles.push(iPos.x, iPos.y, iPos.z, dir.x, dir.y, dir.z, cTime, size);
   }
   update(gl, time) {
@@ -2151,7 +2166,6 @@ function makeAsteroidShape(n_vertices) {
     let z = Math.sin(theta) * radius;
     vertices.push(Vec3.add(Vec3.make(x, y, z), Vec3.multScalar(f(), 0.2)));
   }
-  console.log("N: ", n_vertices, " | ", vertices.length);
   const data = convexHull(vertices);
   return data;
 }
@@ -2263,7 +2277,6 @@ var Cubemap = class {
     ];
     for (let i = 1; i <= 6; i++) {
       const url = prefix.concat(i.toString());
-      console.log("url: ", url);
       mapBitmapToCubeMap(gl, texture, images[url], targets[i - 1]);
     }
     gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
@@ -2458,7 +2471,6 @@ var Game = class {
       this.boostTimer += this.isShiftPressed ? dt : -dt * 0.5;
     if (this.boostTimer > maxBoostTimer) this.boostTimer = -maxBoostTimer;
     if (this.boostTimer < 0) this.boostTimer += dt * 0.5;
-    console.log("boostTimer: ", this.boostTimer);
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), 1, this.time, 0.1, 0.9);
     if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
@@ -2504,7 +2516,7 @@ var Game = class {
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
-    this.perlinFloor.draw(gl);
+    this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
     this.player.draw(gl);
     this.pSystem.draw(gl);
     this.aSystem.draw(gl);

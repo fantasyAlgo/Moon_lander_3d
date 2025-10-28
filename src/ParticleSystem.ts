@@ -112,6 +112,7 @@ export class ParticleSystem {
 
     iPos = Vec3.add(iPos, rPos);
     dir = Vec3.add(dir, rDir);
+    console.log("dir: ", dir.x, dir.y, dir.z);
 
     this.toSpawnParticles.push(iPos.x, iPos.y, iPos.z, dir.x, dir.y, dir.z, cTime, size);
   }

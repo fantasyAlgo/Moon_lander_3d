@@ -199,7 +199,6 @@ export class Game {
       this.boostTimer += this.isShiftPressed ? dt : -dt*0.5;
     if (this.boostTimer > maxBoostTimer) this.boostTimer = -maxBoostTimer;
     if (this.boostTimer < 0.0) this.boostTimer += dt*0.5;
-    console.log("boostTimer: ", this.boostTimer);
 
     //if (Math.floor(this.time)%100 == 0)
     //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
@@ -267,7 +266,7 @@ export class Game {
 
 
     //this.light.draw(gl);
-    this.perlinFloor.draw(gl);
+    this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
     this.player.draw(gl);
     this.pSystem.draw(gl);
     this.aSystem.draw(gl);

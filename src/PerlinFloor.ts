@@ -209,9 +209,23 @@ export class PerlinFloor {
     
   }
 
-  draw(gl : WebGL2RenderingContext){
-    this.shapes.forEach(element => {
-      element.draw(gl);
-    });  
+  draw(gl : WebGL2RenderingContext, cameraPos : Vec3, forward : Vec3){
+    const length = this.nChunks*this.nChunks
+    const playerIndx = Math.floor(length/2.0);
+    for (let i = 0; i < length; i++) {
+      const element = this.shapes[i];
+      if (i == playerIndx) {
+        element.draw(gl);
+        continue;
+      }
+      const cPos = Vec3.make(this.cChunk.x + element.pos.x, element.pos.y, this.cChunk.y+element.pos.z);
+      const diff = Vec3.normalize(Vec3.make(
+        cPos.x-cameraPos.x, 
+        cPos.y-cameraPos.y, 
+        cPos.z-cameraPos.z));
+      if (Vec3.dot(forward, diff) > 0.0)
+        element.draw(gl);
+     
+    }
   }
 }

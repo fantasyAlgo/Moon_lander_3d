@@ -24,7 +24,7 @@ function makeAsteroidShape (n_vertices : number) : ModelData {
     let z = Math.sin(theta)*radius;
     vertices.push(Vec3.add(Vec3.make(x, y, z), Vec3.multScalar(f(), 0.2)));
   }
-  console.log("N: ", n_vertices, " | ", vertices.length);
+  //console.log("N: ", n_vertices, " | ", vertices.length);
   const data : ModelData = convexHull(vertices);
   return data;
 }
