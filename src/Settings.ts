@@ -1,9 +1,9 @@
 let diff = localStorage.getItem("difficulty");
 let levels : number[] = [];
 console.log(diff)
-if (diff == "easy") levels = [0.001, 0.5, 5.0, 10000000000];
-if (diff == "medium") levels = [0.005, 0.30, 4.0, 5318008];
-if (diff == "hard") levels = [0.01, 0.2, 2.0, 8008];
+if (diff == "easy") levels = [0.005, 0.5, 5.0, 10000000000];
+if (diff == "medium") levels = [0.01, 0.30, 4.0, 5318008];
+if (diff == "hard") levels = [0.02, 0.2, 2.0, 8008];
 
 export const SPAWN_ASTEROID_PROB = levels[0];
 export const MAX_IMPACT_VEL = levels[1];

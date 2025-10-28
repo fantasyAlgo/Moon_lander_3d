@@ -143,7 +143,6 @@ export class Game {
     const ch = e.key.charAt(0).toLowerCase();
     if (ch == "o"){
       this.isRunning = false;
-      throw new Error("Stopped the program");
     }
 
     if (e.key == "Shift"){
@@ -193,6 +192,7 @@ export class Game {
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
+    this.isRunning = !(this.player.deathTime > 600.0);
     this.time += dt;
     const maxBoostTimer = 400;
     if (this.boostTimer >= 0)
@@ -271,9 +271,11 @@ export class Game {
 
     this.light.draw(gl);
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
-    this.player.draw(gl);
-    this.pSystem.draw(gl);
+    if (!this.player.dead)
+      this.player.draw(gl);
     this.aSystem.draw(gl);
+
+    this.pSystem.draw(gl);
 
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);

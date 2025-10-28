@@ -1632,8 +1632,13 @@ var Player = class extends Shape {
   }
   cDir = Vec3.make(0, 0, 0);
   dead = false;
+  deathTime = 0;
   fuel = 1e5;
   update(moveVec, camera, shiftPressed, dt) {
+    if (this.dead) {
+      this.deathTime += dt;
+      return;
+    }
     let sub = Vec3.sub(Vec3.make(-moveVec.x * 0.5, 0, -moveVec.z * 0.5), this.rotationAxis);
     this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014 * dt));
     if (this.rotationAxis.x == 0 && this.rotationAxis.y == 0 && this.rotationAxis.z == 0)
@@ -1652,6 +1657,12 @@ var Player = class extends Shape {
     if (moveVec.x == 0 && moveVec.z == 0)
       this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 5e-3 * dt));
     this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2 * dt));
+  }
+  deadAnimation(time, particleSystem) {
+    this.dead = true;
+    for (let j = 0; j < 100; j++) {
+      particleSystem.add(this.pos, Vec3.make(0, 0, 0), 1 + Math.random() * 3, time, 1, 2);
+    }
   }
 };
 
@@ -2207,7 +2218,7 @@ var AsteroidHandler = class {
   }
   checkIfNearPlayer(idx, player) {
     const pos = this.asteroids[idx].pos;
-    return Vec3.distance(pos, player.pos) < this.asteroids[idx].scale.x + 10;
+    return Vec3.distance(pos, player.pos) < this.asteroids[idx].scale.x + 3;
   }
   killAsteroid(i, particleSystem, time) {
     for (let j = 0; j < 100; j++) {
@@ -2223,7 +2234,7 @@ var AsteroidHandler = class {
       if (this.checkIfNearPlayer(i, player)) {
         const coll2 = Collision.checkShapeCollision(this.asteroids[i], player);
         if (coll2.collided) {
-          player.dead = true;
+          player.deadAnimation(time, particleSystem);
           this.killAsteroid(i, particleSystem, time);
           i--;
           continue;
@@ -2260,9 +2271,9 @@ var AsteroidHandler = class {
 var diff = localStorage.getItem("difficulty");
 var levels = [];
 console.log(diff);
-if (diff == "easy") levels = [1e-3, 0.5, 5, 1e10];
-if (diff == "medium") levels = [5e-3, 0.3, 4, 5318008];
-if (diff == "hard") levels = [0.01, 0.2, 2, 8008];
+if (diff == "easy") levels = [5e-3, 0.5, 5, 1e10];
+if (diff == "medium") levels = [0.01, 0.3, 4, 5318008];
+if (diff == "hard") levels = [0.02, 0.2, 2, 8008];
 var SPAWN_ASTEROID_PROB = levels[0];
 var MAX_IMPACT_VEL = levels[1];
 var MIN_ALIGNMENT = levels[2];
@@ -2441,7 +2452,6 @@ var Game = class {
     const ch = e.key.charAt(0).toLowerCase();
     if (ch == "o") {
       this.isRunning = false;
-      throw new Error("Stopped the program");
     }
     if (e.key == "Shift") {
       this.isShiftPressed = true;
@@ -2482,6 +2492,7 @@ var Game = class {
     this.mouseMoveVector.y *= -1;
   }
   update(gl, dt) {
+    this.isRunning = !(this.player.deathTime > 600);
     this.time += dt;
     const maxBoostTimer = 400;
     if (this.boostTimer >= 0)
@@ -2534,9 +2545,10 @@ var Game = class {
     });
     this.light.draw(gl);
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
-    this.player.draw(gl);
-    this.pSystem.draw(gl);
+    if (!this.player.dead)
+      this.player.draw(gl);
     this.aSystem.draw(gl);
+    this.pSystem.draw(gl);
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);
     gl.finish();
@@ -2602,8 +2614,20 @@ function initGame(shaders, models, textures) {
     game.draw(gl);
     if (game.isRunning)
       requestAnimationFrame(step);
+    console.log("aaa");
+    if (!game.isRunning) {
+      if (!loader) throw new Error("loader didnt load");
+      if (!gameContainer) throw new Error("gameContainer didnt load");
+      if (!landingPage) throw new Error("landingPage didnt load");
+      loader.classList.remove("active");
+      gameContainer.classList.remove("active");
+      landingPage.classList.remove("hidden");
+      loadButton.disabled = false;
+      document.exitPointerLock();
+    }
   }
-  step();
+  if (game.isRunning)
+    step();
 }
 async function getShaders() {
   const shader_source = "src/shaders";
@@ -2673,10 +2697,7 @@ async function loadGame() {
     let shaders = await getShaders();
     let models = await getModels();
     let textures = await getImagesAsBitmap();
-    await new Promise((resolve) => setTimeout(resolve, 300));
     gameContainer.classList.add("active");
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    landingPage.classList.add("hidden");
     initGame(shaders, models, textures);
   } catch (error) {
     console.error("Error loading game:", error);
@@ -2686,10 +2707,12 @@ async function loadGame() {
 }
 loadButton.addEventListener("click", loadGame);
 document.addEventListener("keydown", (e) => {
+  if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyDown(e);
 });
 document.addEventListener("keyup", (e) => {
+  if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyUp(e);
 });
@@ -2699,5 +2722,6 @@ document.addEventListener("mousemove", (e) => {
   }
 });
 document.addEventListener("click", () => {
-  canvas.requestPointerLock();
+  if (game.isRunning)
+    canvas.requestPointerLock();
 });

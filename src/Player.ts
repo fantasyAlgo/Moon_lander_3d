@@ -4,6 +4,7 @@ import { Quat } from "./glMath/Quat";
 import { Vec3 } from "./glMath/vec3";
 import { Vec4 } from "./glMath/vec4";
 import { ShaderProgram } from "./helpers/shaderProgram";
+import { ParticleSystem } from "./ParticleSystem";
 import { Shape } from "./Shape";
 
 const UP_VEC = Vec3.make(0, 1, 0);
@@ -11,6 +12,7 @@ export class Player extends Shape {
   cDir : Vec3 = Vec3.make(0,0,0);
 
   dead : boolean = false;
+  deathTime : number = 0.0;
   fuel : number = 100000;
   constructor(
     pos : Vec3, 
@@ -25,6 +27,10 @@ export class Player extends Shape {
     };
 
   update(moveVec : Vec3, camera : Camera, shiftPressed : boolean, dt : number){
+    if (this.dead){
+      this.deathTime += dt;
+      return;
+    }
 
     let sub = Vec3.sub(Vec3.make(-moveVec.x*0.5, 0.0, -moveVec.z*0.5), this.rotationAxis);
     this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014*dt));
@@ -50,5 +56,13 @@ export class Player extends Shape {
       this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 0.005*dt));
 
     this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2.0*dt) );
+  }
+
+  deadAnimation(time : number, particleSystem : ParticleSystem){
+    this.dead = true;
+    for (let j = 0; j < 100; j++) {
+      particleSystem.add(this.pos, Vec3.make(0,0,0), 1+Math.random()*3.0, time, 1, 2);
+    }
+
   }
 }

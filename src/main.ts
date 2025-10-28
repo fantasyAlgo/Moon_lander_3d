@@ -71,8 +71,20 @@ function initGame(shaders : Object, models : Object, textures : Object){
     game.draw(gl);
     if (game.isRunning)
       requestAnimationFrame(step);
+    console.log("aaa");
+    if (!game.isRunning){
+      if (!loader) throw new Error("loader didnt load");
+      if (!gameContainer) throw new Error("gameContainer didnt load");
+      if (!landingPage) throw new Error("landingPage didnt load");
+      loader.classList.remove('active');
+      gameContainer.classList.remove('active');
+      landingPage.classList.remove('hidden');
+      loadButton.disabled = false;
+      document.exitPointerLock()
+    }
   }
-  step();
+  if (game.isRunning)
+    step();
 }
 
 async function getShaders() {
@@ -143,11 +155,10 @@ async function loadGame() {
       let models = await getModels();
       let textures = await getImagesAsBitmap();
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      //await new Promise(resolve => setTimeout(resolve, 300));
       gameContainer.classList.add('active');
       
-      await new Promise(resolve => setTimeout(resolve, 100));
-      landingPage.classList.add('hidden');
+      //await new Promise(resolve => setTimeout(resolve, 100));
 
       initGame(shaders, models, textures);
     } catch (error) {
@@ -155,6 +166,8 @@ async function loadGame() {
         progressText.textContent = 'Error loading game';
         loadButton.disabled = false;
     }
+
+
 }
 
 loadButton.addEventListener('click', loadGame);
@@ -162,10 +175,12 @@ loadButton.addEventListener('click', loadGame);
 
 
 document.addEventListener("keydown", (e) => {
+  if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyDown(e);
 });
 document.addEventListener("keyup", (e) => {
+  if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyUp(e);
 });
@@ -177,6 +192,7 @@ document.addEventListener("mousemove", (e) => {
 });
 
 document.addEventListener("click", () => {
-  canvas.requestPointerLock();
+  if (game.isRunning)
+    canvas.requestPointerLock();
 });
 

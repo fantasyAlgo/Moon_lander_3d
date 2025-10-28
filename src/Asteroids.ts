@@ -95,7 +95,7 @@ export class AsteroidHandler {
       if (this.checkIfNearPlayer(i, player)){
         const coll = Collision.checkShapeCollision(this.asteroids[i], player);
         if (coll.collided){
-          player.dead = true;
+          player.deadAnimation(time, particleSystem);
           this.killAsteroid(i, particleSystem, time);
           i--;
           continue;
