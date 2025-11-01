@@ -358,7 +358,7 @@ var Vec3 = class _Vec3 {
   static distance(v1, v2) {
     const x = v1.x - v2.x;
     const y = v1.y - v2.y;
-    const z = v1.z - v1.z;
+    const z = v1.z - v2.z;
     return Math.sqrt(x * x + y * y + z * z);
   }
   static make(x, y, z) {
@@ -397,6 +397,14 @@ var Vec3 = class _Vec3 {
     let N = _Vec3.cross(C, AB);
     if (_Vec3.dot(N, AO) < 0) N = _Vec3.multScalar(N, -1);
     return _Vec3.normalize(N);
+  }
+  static average(vs) {
+    let sumV = _Vec3.make(0, 0, 0);
+    vs.forEach((v) => {
+      sumV = _Vec3.add(sumV, v);
+    });
+    sumV.multScalar(1 / vs.length);
+    return sumV;
   }
 };
 
@@ -1511,7 +1519,7 @@ var PerlinFloor = class {
       const floorVerticesData = getFloorVertices(perlin3d, Vec2.add(pos, Vec2.make(iX, iY)));
       this.verticesVBO.push(createBufferData(gl, floorVerticesData, gl.DYNAMIC_DRAW));
       const vao = createFloorVao(gl, this.verticesVBO[this.verticesVBO.length - 1], floorIndices, vPosLoc, vNormalLoc);
-      const UP_VEC3 = Vec3.make(0, 1, 0);
+      const UP_VEC4 = Vec3.make(0, 1, 0);
       this.shapes.push(
         new Shape(Vec3.make(pos.x * this.WIDTH * 2, 0, pos.y * this.HEIGHT * 2), Vec3.make(this.WIDTH, 1, this.HEIGHT), shader, vao, floorIndicesData.length)
       );
@@ -2352,6 +2360,149 @@ var Cubemap = class {
   }
 };
 
+// src/Rover.ts
+var PointEntity = class {
+  constructor(pos = Vec3.make(0, 0, 0), vel = Vec3.make(0, 0, 0)) {
+    this.pos = pos;
+    this.vel = vel;
+  }
+  update(dt, GRAVITY2 = 2) {
+    this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, dt));
+  }
+};
+var Constraint = class {
+  constructor(p1, p2, d) {
+    this.p1 = p1;
+    this.p2 = p2;
+    this.d = d;
+  }
+  solve(dt) {
+    const EPS = 1e-3;
+    const diff2 = Vec3.distance(this.p2.pos, this.p1.pos) - this.d;
+    const dir = Vec3.multScalar(
+      Vec3.normalize(Vec3.sub(this.p2.pos, this.p1.pos)),
+      diff2
+    );
+    this.p1.pos = Vec3.add(this.p1.pos, Vec3.multScalar(dir, dt));
+    this.p2.pos = Vec3.sub(this.p2.pos, Vec3.multScalar(dir, dt));
+    return diff2 > EPS;
+  }
+};
+var FLOOR_DIST = 0.5;
+var SPRING_FORCE = 0.7;
+var DAMPING_FORCE = 0.05;
+var UP_VEC3 = Vec3.make(0, 1, 0);
+var Rover = class extends Shape {
+  constructor(pos, scale, program, vao, numIndices, vertices = new Float32Array([])) {
+    super(pos, scale, program, vao, numIndices, vertices);
+    this.program = program;
+    this.numIndices = numIndices;
+    this.vertices = vertices;
+    this.diagonal = Math.SQRT2 * this.scale.x;
+    this.pointTopLeft.pos = Vec3.add(pos, Vec3.mult(scale, Vec3.make(0.5, -0.5, 0.5)));
+    this.pointTopRight.pos = Vec3.add(pos, Vec3.mult(scale, Vec3.make(-0.5, -0.5, 0.5)));
+    this.pointBottomLeft.pos = Vec3.add(pos, Vec3.mult(scale, Vec3.make(0.5, -0.5, -0.5)));
+    this.pointBottomRight.pos = Vec3.add(pos, Vec3.mult(scale, Vec3.make(-0.5, -0.5, -0.5)));
+    this.shapes.push(new Shape(this.pointTopLeft.pos, Vec3.multScalar(scale, 0.1), program, vao, numIndices, vertices));
+    this.shapes.push(new Shape(this.pointTopRight.pos, Vec3.multScalar(scale, 0.1), program, vao, numIndices, vertices));
+    this.shapes.push(new Shape(this.pointBottomLeft.pos, Vec3.multScalar(scale, 0.1), program, vao, numIndices, vertices));
+    this.shapes.push(new Shape(this.pointBottomRight.pos, Vec3.multScalar(scale, 0.1), program, vao, numIndices, vertices));
+    this.constraints = [];
+    this.constraints.push(new Constraint(this.pointTopRight, this.pointTopLeft, this.scale.x));
+    this.constraints.push(new Constraint(this.pointTopRight, this.pointBottomRight, this.scale.x));
+    this.constraints.push(new Constraint(this.pointTopLeft, this.pointBottomLeft, this.scale.x));
+    this.constraints.push(new Constraint(this.pointBottomLeft, this.pointBottomRight, this.scale.x));
+    this.constraints.push(new Constraint(this.pointBottomLeft, this.pointTopRight, this.diagonal));
+    this.constraints.push(new Constraint(this.pointBottomRight, this.pointTopLeft, this.diagonal));
+  }
+  pointTopLeft = new PointEntity();
+  pointTopRight = new PointEntity();
+  pointBottomLeft = new PointEntity();
+  pointBottomRight = new PointEntity();
+  shapes = [];
+  constraints;
+  diagonal;
+  spin = 0;
+  applySpring(from, to, force_distance, SPRING_FORCE2, DAMPING_FORCE2, dt) {
+    let pos = Vec3.add(to, force_distance);
+    const dir = Vec3.sub(pos, from.pos);
+    const spring_force_r = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE2 * 2), Vec3.multScalar(from.vel, DAMPING_FORCE2));
+    spring_force_r.multScalar(dt);
+    from.vel = Vec3.add(from.vel, spring_force_r);
+  }
+  applySpringDist(from, to, force_distance, SPRING_FORCE2, DAMPING_FORCE2, dt) {
+    const dir = Vec3.multScalar(Vec3.normalize(Vec3.sub(to, from.pos)), Vec3.distance(to, from.pos) - force_distance);
+    const spring_force_r = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE2 * 2), Vec3.multScalar(from.vel, DAMPING_FORCE2));
+    spring_force_r.multScalar(dt);
+    from.vel = Vec3.add(from.vel, spring_force_r);
+  }
+  applySpringOnAxis(from, to, force_distance, SPRING_FORCE2, DAMPING_FORCE2, dt, axis, notPushBottom = false) {
+    if (axis == 0) {
+      const dir = Math.sign(to.x - from.pos.x) * (Math.abs(to.x - from.pos.x) - force_distance);
+      const spring_force_r = dir * SPRING_FORCE2 - from.vel.x * DAMPING_FORCE2;
+      from.vel.x += spring_force_r * dt;
+    }
+    if (axis == 1) {
+      const dir = Math.sign(to.y - from.pos.y) * (Math.abs(to.y - from.pos.y) - force_distance);
+      const spring_force_r = dir * SPRING_FORCE2 - from.vel.y * DAMPING_FORCE2;
+      if (notPushBottom && spring_force_r < 0) {
+      }
+      from.vel.y += spring_force_r * dt;
+    }
+    if (axis == 2) {
+      const dir = Math.sign(to.z - from.pos.z) * (Math.abs(to.z - from.pos.z) - force_distance);
+      const spring_force_r = dir * SPRING_FORCE2 - from.vel.z * DAMPING_FORCE2;
+      from.vel.z += spring_force_r * dt;
+    }
+  }
+  applyPerlin(point, perlinNoise, perlin, dt) {
+    const value = perlinNoise.getValue(perlin, point.pos.x, point.pos.z) + FLOOR_DIST;
+    this.applySpringOnAxis(point, Vec3.make(point.pos.x, value, point.pos.z), 0, 2 * SPRING_FORCE, DAMPING_FORCE * 4, dt, 1, true);
+    if (point.pos.y < value - FLOOR_DIST && point.vel.y < 0) {
+      point.pos.y = value - FLOOR_DIST;
+    }
+  }
+  update(dt, perlinNoise, perlin) {
+    this.pointTopLeft.vel.z += dt * 0.05;
+    this.pointTopRight.vel.z += dt * 0.05;
+    if (this.pointTopLeft.vel.z > 2) this.pointTopLeft.vel.z = 2;
+    if (this.pointTopRight.vel.z > 2) this.pointTopLeft.vel.z = 2;
+    this.applyPerlin(this.pointTopRight, perlinNoise, perlin, dt);
+    this.applyPerlin(this.pointTopLeft, perlinNoise, perlin, dt);
+    this.applyPerlin(this.pointBottomRight, perlinNoise, perlin, dt);
+    this.applyPerlin(this.pointBottomLeft, perlinNoise, perlin, dt);
+    let toApply = true;
+    while (toApply) {
+      toApply = false;
+      this.constraints.forEach((c) => toApply ||= c.solve(dt));
+    }
+    this.pointTopRight.update(dt);
+    this.pointTopLeft.update(dt);
+    this.pointBottomRight.update(dt);
+    this.pointBottomLeft.update(dt);
+    this.shapes[0].pos = this.pointTopLeft.pos;
+    this.shapes[1].pos = this.pointTopRight.pos;
+    this.shapes[2].pos = this.pointBottomLeft.pos;
+    this.shapes[3].pos = this.pointBottomRight.pos;
+    this.rotationAxis = UP_VEC3;
+    Vec3.sub(this.pointTopRight.pos, this.pointTopLeft.pos);
+    const yAngle = -Math.atan2(this.pointTopLeft.pos.z - this.pointTopRight.pos.z, this.pointTopLeft.pos.x - this.pointTopRight.pos.x);
+    const zAngle = -Math.atan2(this.pointTopLeft.pos.y - this.pointBottomLeft.pos.y, this.pointTopLeft.pos.z - this.pointBottomLeft.pos.z);
+    const xAngle = -Math.atan2(this.pointTopLeft.pos.y - this.pointTopRight.pos.y, this.pointTopLeft.pos.x - this.pointTopRight.pos.x);
+    this.spin += dt;
+    this.setRotation([
+      Quat.makeFromAxis(yAngle + Math.PI / 2, UP_VEC3),
+      Quat.makeFromAxis(zAngle, Vec3.make(0, 0, 1)),
+      Quat.makeFromAxis(xAngle, Vec3.make(1, 0, 0))
+    ]);
+    this.pos = Vec3.average([this.pointTopLeft.pos, this.pointBottomLeft.pos, this.pointTopRight.pos, this.pointBottomRight.pos]);
+    this.pos.y += this.scale.y * 0.5;
+  }
+  drawSmallOnes(gl) {
+    this.shapes.forEach((e) => e.draw(gl));
+  }
+};
+
 // src/Game.ts
 var Game = class {
   time = 0;
@@ -2380,6 +2531,7 @@ var Game = class {
   perlin3d;
   noiseTexture;
   player;
+  rover;
   pSystem;
   aSystem;
   skybox;
@@ -2422,10 +2574,11 @@ var Game = class {
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["rover"] = loadModel(gl, models["rover"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     gl.viewport(0, 0, this.width, this.height);
     this.shapes = [];
     this.player = new Player(
-      Vec3.make(0, 0, 0),
+      Vec3.make(60, 0, 60),
       Vec3.make(0.4, 0.4, 0.4),
       this.shaders["main"],
       this.vaos["lander"],
@@ -2447,6 +2600,7 @@ var Game = class {
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e5);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
+    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(3, 3, 3), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
   }
   handleKeyDown(e) {
     const ch = e.key.charAt(0).toLowerCase();
@@ -2499,17 +2653,18 @@ var Game = class {
       this.boostTimer += this.isShiftPressed ? dt : -dt * 0.5;
     if (this.boostTimer > maxBoostTimer) this.boostTimer = -maxBoostTimer;
     if (this.boostTimer < 0) this.boostTimer += dt * 0.5;
+    const pSprinting = this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer;
     if (this.moveVector.y > 0)
-      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), 1, this.time, 0.1, 0.9);
-    if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), pSprinting ? 2 : 1, this.time, 0.1, 0.9);
+    if (Math.random() > 1 - SPAWN_ASTEROID_PROB)
       this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z));
-    }
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.time, dt);
     this.skybox.update(gl, this.pCamera);
+    this.rover.update(dt * 0.01, this.perlinFloor, this.perlin3d);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
     this.light.updateWorldData();
     this.player.updateWorldData();
@@ -2549,6 +2704,7 @@ var Game = class {
       this.player.draw(gl);
     this.aSystem.draw(gl);
     this.pSystem.draw(gl);
+    this.rover.draw(gl);
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);
     gl.finish();
@@ -2652,7 +2808,9 @@ async function getModels() {
   const model_source = "../models";
   const models_names = [
     "lander",
-    "sphere"
+    "sphere",
+    "rover",
+    "roverConvex"
   ];
   let object = {};
   for (let i = 0; i < models_names.length; i++)

@@ -19,6 +19,7 @@ import { ParticleSystem } from "./ParticleSystem.ts";
 import { AsteroidHandler } from "./Asteroids.ts";
 import { SPAWN_ASTEROID_PROB } from "./Settings.ts";
 import { Cubemap } from "./Cubemap.ts";
+import { Rover } from "./Rover.ts";
 
 
 
@@ -65,6 +66,9 @@ export class Game {
   noiseTexture : WebGLTexture;
 
   player : Player;
+  rover : Rover;
+
+
   pSystem : ParticleSystem;
   aSystem : AsteroidHandler;
   skybox : Cubemap;
@@ -117,13 +121,14 @@ export class Game {
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["rover"] = loadModel(gl, models["rover"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
 
     gl.viewport(0, 0, this.width, this.height);
 
     this.shapes = [];
 
     this.player = new Player(
-      Vec3.make(0, 0, 0), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 
+      Vec3.make(60, 0, 60), Vec3.make(0.4, 0.4, 0.4), this.shaders["main"], this.vaos["lander"], models["lander"].indices.length, 
       models["lander"].vertices, 4.0,
     );
 
@@ -137,6 +142,7 @@ export class Game {
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 100000);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
+    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(3, 3, 3), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
   }
 
   handleKeyDown(e : KeyboardEvent){
@@ -183,6 +189,7 @@ export class Game {
     if (e.code == "Space") 
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
+
   }
 
   handleMouseMovement(e : MouseEvent){
@@ -199,15 +206,14 @@ export class Game {
       this.boostTimer += this.isShiftPressed ? dt : -dt*0.5;
     if (this.boostTimer > maxBoostTimer) this.boostTimer = -maxBoostTimer;
     if (this.boostTimer < 0.0) this.boostTimer += dt*0.5;
+    const pSprinting : boolean = this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer;
 
     //if (Math.floor(this.time)%100 == 0)
     //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
     if (this.moveVector.y > 0)
-      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), 1.0, this.time, 0.1, 0.9);
-    if (Math.random() > (1.0-SPAWN_ASTEROID_PROB)){
+      this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), pSprinting ? 2.0 : 1.0, this.time, 0.1, 0.9);
+    if (Math.random() > (1.0-SPAWN_ASTEROID_PROB))
       this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z));
-    }
-
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
@@ -215,6 +221,9 @@ export class Game {
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.time, dt);
     this.skybox.update(gl, this.pCamera);
+    this.rover.update(dt*0.01, this.perlinFloor, this.perlin3d);
+
+
     //updateEntitiesPhysics([this.player], dt);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
 
@@ -229,7 +238,6 @@ export class Game {
 
     //const lightColl = Collision.checkShapeCollision(this.player, this.light);
     //if (lightColl.collided) console.log("lightColl");
-
 
 
     this.pSystem.update(gl, this.time);
@@ -276,6 +284,8 @@ export class Game {
     this.aSystem.draw(gl);
 
     this.pSystem.draw(gl);
+    this.rover.draw(gl);
+    //this.rover.drawSmallOnes(gl);
 
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);

@@ -54,7 +54,7 @@ export class Vec3 {
   static distance(v1 : Vec3, v2 : Vec3) : number{
     const x = v1.x-v2.x;
     const y = v1.y-v2.y;
-    const z = v1.z-v1.z
+    const z = v1.z-v2.z
     return Math.sqrt(x*x + y*y + z*z);
   }
 
@@ -101,6 +101,15 @@ export class Vec3 {
     let N = Vec3.cross(C, AB);
     if (Vec3.dot(N, AO) < 0) N = Vec3.multScalar(N, -1.0);
     return Vec3.normalize(N);
+  }
+
+  static average(vs : Vec3[]){
+    let sumV : Vec3 = Vec3.make(0,0,0);
+    vs.forEach((v) => {
+      sumV = Vec3.add(sumV, v);
+    });
+    sumV.multScalar(1.0/vs.length);
+    return sumV;
   }
 
 

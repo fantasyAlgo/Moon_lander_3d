@@ -13,6 +13,7 @@ void main(){
   vec3 s = normalize(t.xyz/t.w);
   s.y *= -1.0f;
   outputColor = texture(uSkyBox, s);
-  outputColor.xyz *= 0.1f;
+  //outputColor.xyz *= 0.13f;
+  outputColor.xyz *= 0.25f;
 }
 

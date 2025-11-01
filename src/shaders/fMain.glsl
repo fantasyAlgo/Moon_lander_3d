@@ -14,7 +14,7 @@ uniform sampler2D u_noiseTex;
 
 out vec4 outputColor;
 void main(){
-  float ambient = 0.09f;
+  float ambient = 0.09f + clamp(vOutPos.y*0.01f, -0.5, 0.2);
 
   float noise_height = texture(u_noiseTex, vOutUV*2.0f).r;
 

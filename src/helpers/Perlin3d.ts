@@ -1,4 +1,5 @@
 import { Vec2 } from "../glMath/vec2";
+import { Vec3 } from "../glMath/vec3";
 
 function fade(t : number){
   return 6*Math.pow(t, 5) - 15*Math.pow(t, 4) + 10*Math.pow(t, 3);
@@ -73,7 +74,6 @@ export class Octave {
     const ix1 : number = d01*(1.0-u) + d11*u;
     const value : number = ix0*(1.0-v) + ix1*v;
     return value;
-
   }
 }
 

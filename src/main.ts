@@ -102,7 +102,7 @@ async function getShaders() {
 async function getModels(){
   const model_source = "../models";
   const models_names = [
-    "lander", "sphere"
+    "lander", "sphere", "rover", "roverConvex"
   ];
   let object: { [Name: string]: ModelData} = {};
   for (let i = 0; i < models_names.length; i++)
