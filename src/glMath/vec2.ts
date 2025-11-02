@@ -33,6 +33,12 @@ export class Vec2 {
     const y = v1.y-v2.y;
     return Math.sqrt(x*x + y*y );
   }
+  static signDistance(v1 : Vec2, v2: Vec2) : number {
+    const x = v1.x-v2.x;
+    const y = v1.y-v2.y;
+
+    return x + y;
+  }
 
   static make(x : number, y : number) : Vec2{
     return new Vec2(x, y);

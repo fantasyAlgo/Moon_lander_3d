@@ -113,12 +113,6 @@ async function getModels(){
 async function getImagesAsBitmap(){
   const model_source = "../images";
   const image_names = [
-    //"cubemap1",
-    //"cubemap2",
-    //"cubemap3",
-    //"cubemap4",
-    //"cubemap5",
-    //"cubemap6",
     "random1",
     "random2",
     "random3",

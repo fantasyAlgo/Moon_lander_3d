@@ -848,6 +848,98 @@ function getFloorIndices(grid_width, grid_height) {
   return new Uint16Array(indices);
 }
 
+// src/glMath/mat3x3.ts
+var Mat3x3 = class _Mat3x3 {
+  values;
+  constructor(values) {
+    if (values.length != 9)
+      throw new Error(`Values length is different than 9: ${values.length}`);
+    this.values = values;
+  }
+  get(i, j) {
+    return this.values[j * 3 + i];
+  }
+  set(i, j, v) {
+    if (j * 3 + i > 9) throw new Error("Index too high");
+    this.values[j * 3 + i] = v;
+  }
+  multScalar(n) {
+    for (let i = 0; i < 9; i++)
+      this.values[i] *= n;
+  }
+  static identity() {
+    return new _Mat3x3(new Float32Array([
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1
+    ]));
+  }
+  static add(m1, m2) {
+    let values = [];
+    for (let i = 0; i < 9; i++) {
+      const v = m1.values[i] + m2.values[i];
+      values.push(v);
+    }
+    return new _Mat3x3(new Float32Array(values));
+  }
+  static sub(m1, m2) {
+    let values = [];
+    for (let i = 0; i < 9; i++) {
+      const v = m1.values[i] - m2.values[i];
+      values.push(v);
+    }
+    return new _Mat3x3(new Float32Array(values));
+  }
+  static multMatrix(m1, m2) {
+    let values = [];
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const v = m1.get(0, i) * m2.get(j, 0) + m1.get(1, i) * m2.get(j, 1) + m1.get(2, i) * m2.get(j, 2) + m1.get(3, i) * m2.get(j, 3);
+        values.push(v);
+      }
+    }
+    return new _Mat3x3(new Float32Array(values));
+  }
+  static multVec3(m1, vec) {
+    let values = [];
+    for (let i = 0; i < 3; i++) {
+      const v = m1.get(i, 0) * vec.x + m1.get(i, 1) * vec.y + m1.get(i, 2) * vec.z;
+      values.push(v);
+    }
+    return new Vec3(values[0], values[1], values[2]);
+  }
+  static transpose(m) {
+    let values = [];
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        const v = m.get(i, j);
+        values.push(v);
+      }
+    }
+    return new _Mat3x3(new Float32Array(values));
+  }
+  static makeFromV(v1, v2, v3) {
+    const values = [
+      v1.x,
+      v2.x,
+      v3.x,
+      v1.y,
+      v2.y,
+      v3.y,
+      v1.z,
+      v2.z,
+      v3.z
+    ];
+    return new _Mat3x3(new Float32Array(values));
+  }
+};
+
 // src/glMath/mat4x4.ts
 var Mat4x4 = class _Mat4x4 {
   values;
@@ -1174,6 +1266,34 @@ var Mat4x4 = class _Mat4x4 {
     out.values[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
     return out;
   }
+  static makeFromMat3(m) {
+    const values = m.values;
+    const nValues = [];
+    let it = 0;
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (i != 3 && j != 3) nValues.push(values[it++]);
+        else nValues.push(0);
+      }
+    }
+    nValues[15] = 1;
+    return new _Mat4x4(new Float32Array(nValues));
+  }
+  static rotFromPlane(v1, v2, v3) {
+    const size = Vec3.distance(v1, v2);
+    const ul = Vec3.normalize(Vec3.sub(v2, v1));
+    let vl = Vec3.normalize(Vec3.sub(v3, v1));
+    const wl = Vec3.normalize(Vec3.cross(ul, vl));
+    if (Vec3.dot(wl, Vec3.make(0, 1, 0)) < 0) wl.multScalar(-1);
+    const nvl = Vec3.normalize(Vec3.cross(ul, wl));
+    if (Vec3.dot(vl, nvl) < 0) vl = Vec3.multScalar(nvl, -1);
+    else vl = nvl;
+    let m3p = Mat3x3.makeFromV(vl, wl, ul);
+    m3p = Mat3x3.transpose(m3p);
+    let R = _Mat4x4.makeFromMat3(m3p);
+    R = _Mat4x4.multMatrix(R, _Mat4x4.scale(Vec3.make(size, size, size)));
+    return R;
+  }
 };
 
 // src/glMath/vec2.ts
@@ -1207,6 +1327,11 @@ var Vec2 = class _Vec2 {
     const x = v1.x - v2.x;
     const y = v1.y - v2.y;
     return Math.sqrt(x * x + y * y);
+  }
+  static signDistance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    return x + y;
   }
   static make(x, y) {
     return new _Vec2(x, y);
@@ -2388,7 +2513,7 @@ var Constraint = class {
     return diff2 > EPS;
   }
 };
-var FLOOR_DIST = 0.5;
+var FLOOR_DIST = 0.7;
 var SPRING_FORCE = 0.7;
 var DAMPING_FORCE = 0.05;
 var UP_VEC3 = Vec3.make(0, 1, 0);
@@ -2414,6 +2539,7 @@ var Rover = class extends Shape {
     this.constraints.push(new Constraint(this.pointBottomLeft, this.pointBottomRight, this.scale.x));
     this.constraints.push(new Constraint(this.pointBottomLeft, this.pointTopRight, this.diagonal));
     this.constraints.push(new Constraint(this.pointBottomRight, this.pointTopLeft, this.diagonal));
+    this.target = Vec2.multScalar(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random()), 500);
   }
   pointTopLeft = new PointEntity();
   pointTopRight = new PointEntity();
@@ -2422,6 +2548,7 @@ var Rover = class extends Shape {
   shapes = [];
   constraints;
   diagonal;
+  target = Vec2.make(0, 0);
   spin = 0;
   applySpring(from, to, force_distance, SPRING_FORCE2, DAMPING_FORCE2, dt) {
     let pos = Vec3.add(to, force_distance);
@@ -2463,8 +2590,15 @@ var Rover = class extends Shape {
     }
   }
   update(dt, perlinNoise, perlin) {
-    this.pointTopLeft.vel.z += dt * 0.05;
-    this.pointTopRight.vel.z += dt * 0.05;
+    let dir = Vec2.sub(this.target, Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z));
+    const dist = dir.distance;
+    dir = Vec2.multScalar(Vec2.normalize(dir), dt);
+    this.pointTopLeft.vel = Vec3.add(this.pointTopLeft.vel, Vec3.make(dir.x, 0, dir.y));
+    this.pointTopRight.vel = Vec3.add(this.pointTopRight.vel, Vec3.make(dir.x, 0, dir.y));
+    this.pointTopRight.vel.clamp(-2, 2, -100, 100, -2, 2);
+    this.pointTopLeft.vel.clamp(-2, 2, -100, 100, -2, 2);
+    if (dist < 1)
+      this.target = Vec2.multScalar(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random()), 500);
     if (this.pointTopLeft.vel.z > 2) this.pointTopLeft.vel.z = 2;
     if (this.pointTopRight.vel.z > 2) this.pointTopLeft.vel.z = 2;
     this.applyPerlin(this.pointTopRight, perlinNoise, perlin, dt);
@@ -2484,22 +2618,22 @@ var Rover = class extends Shape {
     this.shapes[1].pos = this.pointTopRight.pos;
     this.shapes[2].pos = this.pointBottomLeft.pos;
     this.shapes[3].pos = this.pointBottomRight.pos;
-    this.rotationAxis = UP_VEC3;
-    Vec3.sub(this.pointTopRight.pos, this.pointTopLeft.pos);
-    const yAngle = -Math.atan2(this.pointTopLeft.pos.z - this.pointTopRight.pos.z, this.pointTopLeft.pos.x - this.pointTopRight.pos.x);
-    const zAngle = -Math.atan2(this.pointTopLeft.pos.y - this.pointBottomLeft.pos.y, this.pointTopLeft.pos.z - this.pointBottomLeft.pos.z);
-    const xAngle = -Math.atan2(this.pointTopLeft.pos.y - this.pointTopRight.pos.y, this.pointTopLeft.pos.x - this.pointTopRight.pos.x);
-    this.spin += dt;
-    this.setRotation([
-      Quat.makeFromAxis(yAngle + Math.PI / 2, UP_VEC3),
-      Quat.makeFromAxis(zAngle, Vec3.make(0, 0, 1)),
-      Quat.makeFromAxis(xAngle, Vec3.make(1, 0, 0))
-    ]);
-    this.pos = Vec3.average([this.pointTopLeft.pos, this.pointBottomLeft.pos, this.pointTopRight.pos, this.pointBottomRight.pos]);
-    this.pos.y += this.scale.y * 0.5;
+    this.pos = Vec3.make(0, 0, 0);
+    this.pos.copy(this.pointBottomLeft.pos);
   }
   drawSmallOnes(gl) {
     this.shapes.forEach((e) => e.draw(gl));
+  }
+  draw(gl) {
+    const matWorldUniform = this.program.getUniform(gl, "matWorld");
+    let matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
+    this.model = matWorld;
+    this.program.bind(gl);
+    gl.uniformMatrix4fv(matWorldUniform, false, matWorld.values);
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
   }
 };
 
@@ -2587,7 +2721,7 @@ var Game = class {
       4
     );
     this.light = new Light(
-      Vec3.make(4, 20, 2),
+      Vec3.make(-200, 20, -200),
       Vec3.make(1, 1, 1),
       this.shaders["light"],
       this.vaos["cube"],
@@ -2698,7 +2832,6 @@ var Game = class {
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
-    this.light.draw(gl);
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
     if (!this.player.dead)
       this.player.draw(gl);
@@ -2820,12 +2953,6 @@ async function getModels() {
 async function getImagesAsBitmap() {
   const model_source = "../images";
   const image_names = [
-    //"cubemap1",
-    //"cubemap2",
-    //"cubemap3",
-    //"cubemap4",
-    //"cubemap5",
-    //"cubemap6",
     "random1",
     "random2",
     "random3",

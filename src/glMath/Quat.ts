@@ -1,3 +1,4 @@
+import { Mat4x4 } from "./mat4x4";
 import { Vec3 } from "./vec3"
 
 export class Quat {

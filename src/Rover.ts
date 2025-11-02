@@ -1,9 +1,12 @@
 import { Quat } from "./glMath/Quat";
 import { Vec3 } from "./glMath/vec3";
+import { Vec2 } from "./glMath/vec2";
+
 import { Perlin3d } from "./helpers/Perlin3d";
 import { ShaderProgram } from "./helpers/shaderProgram";
 import { PerlinFloor } from "./PerlinFloor";
 import { Shape } from "./Shape";
+import { Mat4x4 } from "./glMath/mat4x4";
 
 class PointEntity {
   constructor(
@@ -29,22 +32,12 @@ class Constraint {
     this.p1.pos = Vec3.add(this.p1.pos, Vec3.multScalar(dir, dt));
     this.p2.pos = Vec3.sub(this.p2.pos, Vec3.multScalar(dir, dt));
     return diff > EPS;
-    
-    //const spring_force_r_p1 : Vec3 = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE), Vec3.multScalar(this.p1.vel, DAMPING_FORCE));
-    //const spring_force_r_p2 : Vec3 = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE), Vec3.multScalar(this.p2.vel, DAMPING_FORCE));
-
-    //spring_force_r_p1.multScalar(0.5*dt);
-    //spring_force_r_p2.multScalar(0.5*dt);
-
-    //this.p1.vel = Vec3.add(this.p1.vel, spring_force_r_p1);
-    //this.p2.vel = Vec3.sub(this.p2.vel, spring_force_r_p2);
-    //console.log(this.p1.vel, this.p2.vel, dir, spring_force_r_p1, spring_force_r_p2, Vec3.distance(this.p2.pos, this.p1.pos));
   }
 }
 
 
 
-const FLOOR_DIST = 0.5;
+const FLOOR_DIST = 1.0;
 const SPRING_FORCE = 0.7;
 const DAMPING_FORCE = 0.05;
 const UP_VEC : Vec3 = Vec3.make(0, 1, 0);
@@ -59,6 +52,7 @@ export class Rover extends Shape{
   constraints : Constraint[];
 
   diagonal : number;
+  target : Vec2 = Vec2.make(0,0); 
   spin : number = 0.0;
 
 
@@ -93,6 +87,8 @@ export class Rover extends Shape{
 
       this.constraints.push(new Constraint(this.pointBottomLeft, this.pointTopRight, this.diagonal));
       this.constraints.push(new Constraint(this.pointBottomRight, this.pointTopLeft, this.diagonal));
+
+      this.target = Vec2.multScalar(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random()), 500.0);
   }
 
   applySpring(from : PointEntity, to : Vec3, force_distance : Vec3, SPRING_FORCE : number, DAMPING_FORCE : number, dt : number){
@@ -104,6 +100,7 @@ export class Rover extends Shape{
     //console.log("diff: ", from.pos, pos, " | ", spring_force_r);
     from.vel = Vec3.add(from.vel, spring_force_r);
   }
+
   applySpringDist(from : PointEntity, to : Vec3, force_distance : number, SPRING_FORCE : number, DAMPING_FORCE : number, dt : number){
     const dir : Vec3 =  Vec3.multScalar(Vec3.normalize(Vec3.sub(to, from.pos)), Vec3.distance(to, from.pos) - force_distance);
     const spring_force_r : Vec3 = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE*2.0), Vec3.multScalar(from.vel, DAMPING_FORCE));
@@ -144,9 +141,19 @@ export class Rover extends Shape{
 
   update(dt : number, perlinNoise : PerlinFloor, perlin : Perlin3d){
     //this.pointTopRight.vel.z += dt*0.005;
+    let dir = Vec2.sub(this.target, Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z));
+    const dist = dir.distance;
+    dir = Vec2.multScalar(Vec2.normalize(dir), dt);
+    this.pointTopLeft.vel = Vec3.add(this.pointTopLeft.vel, Vec3.make(dir.x, 0.0, dir.y));
+    this.pointTopRight.vel = Vec3.add(this.pointTopRight.vel, Vec3.make(dir.x, 0.0, dir.y));
 
-    this.pointTopLeft.vel.z += dt*0.05;
-    this.pointTopRight.vel.z += dt*0.05;
+    this.pointTopRight.vel.clamp(-2, 2, -100, 100, -2, 2);
+    this.pointTopLeft.vel.clamp(-2, 2, -100, 100, -2, 2);
+
+    if (dist < 1)
+      this.target = Vec2.multScalar(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random()), 500.0);
+
+
     if (this.pointTopLeft.vel.z > 2.0) this.pointTopLeft.vel.z = 2.0;
     if (this.pointTopRight.vel.z > 2.0) this.pointTopLeft.vel.z = 2.0;
 
@@ -160,37 +167,6 @@ export class Rover extends Shape{
       this.constraints.forEach((c : Constraint) => toApply ||= c.solve(dt));
     }
 
-    //this.applySpring(this.pointBottomLeft, this.pointTopRight.pos,  Vec3.make(this.scale.x, 0, -this.scale.x), 2.0*SPRING_FORCE, DAMPING_FORCE, dt);
-    //this.applySpring(this.pointBottomRight, this.pointTopLeft.pos,  Vec3.make(-this.scale.x, 0, -this.scale.x), 2.0*SPRING_FORCE, DAMPING_FORCE, dt);
-
-    ////this.applySpring(this.pointBottomLeft, this.pointTopLeft.pos,  0.0, SPRING_FORCE*0.2, DAMPING_FORCE, dt);
-    ////this.applySpring(this.pointBottomRight, this.pointTopRight.pos,  0.0, SPRING_FORCE*0.2, DAMPING_FORCE, dt);
-
-
-
-
-    //this.applySpringDist(this.pointTopLeft, this.pointTopRight.pos, this.scale.x, SPRING_FORCE, DAMPING_FORCE, dt);
-    //this.applySpringDist(this.pointTopLeft, this.pointBottomLeft.pos, this.scale.z, SPRING_FORCE, DAMPING_FORCE, dt);
-
-    //this.applySpringDist(this.pointBottomLeft, this.pointBottomRight.pos, this.scale.x, SPRING_FORCE, DAMPING_FORCE, dt);
-    //this.applySpringDist(this.pointBottomRight, this.pointTopRight.pos, this.scale.z, SPRING_FORCE, DAMPING_FORCE, dt);
-
-
-
-    //this.applySpringDist(this.pointTopRight, this.pointTopLeft.pos, this.scale.x, SPRING_FORCE, DAMPING_FORCE, dt);
-    //this.applySpringDist(this.pointTopRight, this.pointBottomRight.pos, this.scale.z, SPRING_FORCE, DAMPING_FORCE, dt);
-
-
-    //this.applySpringOnAxis(this.pointBottomRight, this.pointBottomLeft.pos, this.scale.x,     SPRING_FORCE*1.0, DAMPING_FORCE, dt, 0);
-    //this.applySpringOnAxis(this.pointBottomRight, this.pointTopRight.pos, this.scale.z,       SPRING_FORCE*1.0, DAMPING_FORCE, dt, 2);
-    //this.applySpringOnAxis(this.pointBottomRight, this.pointTopRight.pos, 0.0,                SPRING_FORCE*1.8, DAMPING_FORCE, dt, 1);
-
-    //this.applySpringOnAxis(this.pointBottomLeft, this.pointBottomRight.pos, this.scale.x,     SPRING_FORCE*1.0, DAMPING_FORCE, dt, 0);
-    //this.applySpringOnAxis(this.pointBottomLeft, this.pointTopLeft.pos, this.scale.z,         SPRING_FORCE*1.0, DAMPING_FORCE, dt, 2);
-
-    //this.applySpringOnAxis(this.pointBottomLeft, this.pointTopLeft.pos, 0.0         ,         SPRING_FORCE*1.8, DAMPING_FORCE, dt, 1);
-
-
 
     this.pointTopRight.update(dt);
     this.pointTopLeft.update(dt);
@@ -201,25 +177,49 @@ export class Rover extends Shape{
     this.shapes[1].pos = this.pointTopRight.pos;
     this.shapes[2].pos = this.pointBottomLeft.pos;
     this.shapes[3].pos = this.pointBottomRight.pos;
+    /*
 
     this.rotationAxis = UP_VEC; Vec3.sub(this.pointTopRight.pos, this.pointTopLeft.pos);
     const yAngle = -Math.atan2(this.pointTopLeft.pos.z-this.pointTopRight.pos.z, this.pointTopLeft.pos.x - this.pointTopRight.pos.x);
-    const zAngle = -Math.atan2(this.pointTopLeft.pos.y - this.pointBottomLeft.pos.y, this.pointTopLeft.pos.z-this.pointBottomLeft.pos.z);
-    const xAngle = -Math.atan2(this.pointTopLeft.pos.y - this.pointTopRight.pos.y, this.pointTopLeft.pos.x-this.pointTopRight.pos.x);
-    this.spin += dt;
 
+    const topBottomD = Vec2.distance(Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z), Vec2.make(this.pointBottomLeft.pos.x, this.pointBottomLeft.pos.z));
+    const zAngle = Math.atan2(this.pointTopLeft.pos.y - this.pointBottomLeft.pos.y, topBottomD);
+
+    const leftRightD = Vec2.distance(Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z), Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z));
+    const xAngle = Math.atan2(this.pointTopLeft.pos.y - this.pointTopRight.pos.y, leftRightD);
+
+
+    this.spin += dt;
     this.setRotation([
-      Quat.makeFromAxis(yAngle + Math.PI/2, UP_VEC), 
+      Quat.makeFromAxis(yAngle - Math.PI/2 , UP_VEC), 
       Quat.makeFromAxis(zAngle, Vec3.make(0, 0, 1)), 
       Quat.makeFromAxis(xAngle, Vec3.make(1, 0, 0))
     ]);
+    */
 
 
-    this.pos = Vec3.average([this.pointTopLeft.pos, this.pointBottomLeft.pos, this.pointTopRight.pos, this.pointBottomRight.pos]);
-    this.pos.y += this.scale.y*0.5;
+    this.pos = Vec3.make(0,0,0);
+    this.pos.copy(this.pointBottomLeft.pos);
+    //Vec3.average([this.pointTopLeft.pos, this.pointBottomLeft.pos, this.pointTopRight.pos, this.pointBottomRight.pos]);
   }
   drawSmallOnes(gl : WebGL2RenderingContext){
     this.shapes.forEach((e : Shape) => e.draw(gl));
+  }
+
+  draw(gl : WebGL2RenderingContext){
+    const matWorldUniform = this.program.getUniform(gl, "matWorld")
+    //console.log(this);
+    let matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
+    //console.log(matWorld.values)
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
+    this.model = matWorld;
+
+    this.program.bind(gl);
+    gl.uniformMatrix4fv(matWorldUniform, false, matWorld.values);
+
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
   }
 
 

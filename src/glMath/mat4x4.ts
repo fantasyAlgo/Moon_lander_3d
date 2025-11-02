@@ -1,4 +1,5 @@
 
+import { Mat3x3 } from "./mat3x3";
 import { Quat } from "./Quat";
 import { Vec3 } from "./vec3";
 import { Vec4 } from "./vec4";
@@ -298,6 +299,36 @@ export class Mat4x4 {
     out.values[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
 
     return out;
+  }
+  static makeFromMat3(m : Mat3x3) : Mat4x4 {
+    const values : Float32Array = m.values;
+    const nValues : number[] = [];
+    let it = 0;
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 4; j++){
+        if (i != 3 && j != 3) nValues.push(values[it++]);
+        else nValues.push(0.0);
+      }
+    }
+    nValues[15] = 1.0;
+    return new Mat4x4(new Float32Array(nValues));
+  }
+
+  static rotFromPlane(v1 : Vec3, v2 : Vec3, v3 : Vec3) : Mat4x4{
+    const size = Vec3.distance(v1, v2);
+    const ul = Vec3.normalize(Vec3.sub(v2, v1));
+    let vl = Vec3.normalize(Vec3.sub(v3, v1));
+    const wl = Vec3.normalize(Vec3.cross(ul, vl));
+    if (Vec3.dot(wl, Vec3.make(0, 1, 0)) < 0) wl.multScalar(-1.0);
+    const nvl = Vec3.normalize(Vec3.cross(ul, wl));
+    if (Vec3.dot(vl, nvl) < 0) vl = Vec3.multScalar(nvl, -1.0);
+    else vl = nvl;
+
+    let m3p = Mat3x3.makeFromV(vl, wl, ul);
+    m3p = Mat3x3.transpose(m3p);
+    let R = Mat4x4.makeFromMat3(m3p);
+    R = Mat4x4.multMatrix(R, Mat4x4.scale(Vec3.make(size, size, size)));
+    return R;
   }
 
 

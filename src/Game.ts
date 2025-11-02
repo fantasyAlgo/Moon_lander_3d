@@ -133,7 +133,7 @@ export class Game {
     );
 
     this.light = new Light(
-      Vec3.make(4, 20.0, 2), Vec3.make(1.0, 1.0, 1.0), this.shaders["light"], 
+      Vec3.make(-200, 20.0, -200), Vec3.make(1.0, 1.0, 1.0), this.shaders["light"], 
       this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5), CUBE_VERTICES, 
     );
     this.shaders["main"].bind(gl);
@@ -236,9 +236,6 @@ export class Game {
     if (coll.collided)
       this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 0.001;
 
-    //const lightColl = Collision.checkShapeCollision(this.player, this.light);
-    //if (lightColl.collided) console.log("lightColl");
-
 
     this.pSystem.update(gl, this.time);
 
@@ -277,7 +274,7 @@ export class Game {
     });
 
 
-    this.light.draw(gl);
+    //this.light.draw(gl);
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
     if (!this.player.dead)
       this.player.draw(gl);
