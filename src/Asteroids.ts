@@ -101,6 +101,7 @@ export class AsteroidHandler {
           continue;
         }
       }
+
       if (this.asteroids[i].pos.y > 25) continue;
       const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
       if (coll.collided){
@@ -119,6 +120,25 @@ export class AsteroidHandler {
     if (this.verticesVao[indxVao].length < 2) throw new Error("Vertices length cannot be less than 2");
     this.asteroids.push(
       new Shape(Vec3.add(pos, offset_pos), Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
+    );
+    this.asteroids[this.asteroids.length-1].vel = vel;
+    this.asteroids[this.asteroids.length-1].mass = 1000.0;
+  }
+  addAttackRover(pos : Vec3, rover : Vec3){
+    const f = () : number => 0.5 - Math.random();
+
+    const offset_pos = Vec3.multScalar(Vec3.make(f(),f(),f()), 100.0);
+    const offset_vel = Vec3.multScalar(Vec3.make(f(),f(),f()), 0.0);
+
+
+    const scale = Math.floor(2 + Math.random()*5);
+    const indxVao = Math.floor(Math.random()*this.vaos.length);
+    const fPos : Vec3 = Vec3.add(pos, offset_pos);
+    const vel = Vec3.normalize(Vec3.add(Vec3.sub(rover, fPos), offset_vel));
+
+    if (this.verticesVao[indxVao].length < 2) throw new Error("Vertices length cannot be less than 2");
+    this.asteroids.push(
+      new Shape(fPos, Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
     );
     this.asteroids[this.asteroids.length-1].vel = vel;
     this.asteroids[this.asteroids.length-1].mass = 1000.0;

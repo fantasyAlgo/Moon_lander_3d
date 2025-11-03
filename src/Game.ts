@@ -142,7 +142,7 @@ export class Game {
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 100000);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
-    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(3, 3, 3), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(6, 6, 6), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
   }
 
   handleKeyDown(e : KeyboardEvent){
@@ -212,8 +212,12 @@ export class Game {
     //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), pSprinting ? 2.0 : 1.0, this.time, 0.1, 0.9);
-    if (Math.random() > (1.0-SPAWN_ASTEROID_PROB))
-      this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z));
+
+    if (Math.random() > (1.0-SPAWN_ASTEROID_PROB)){
+      if (Math.random() > 0.8)
+        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z), this.rover.pos);
+      else this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z));
+    }
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);

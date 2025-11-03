@@ -37,7 +37,7 @@ class Constraint {
 
 
 
-const FLOOR_DIST = 1.0;
+const FLOOR_DIST = 2.0;
 const SPRING_FORCE = 0.7;
 const DAMPING_FORCE = 0.05;
 const UP_VEC : Vec3 = Vec3.make(0, 1, 0);
@@ -177,26 +177,6 @@ export class Rover extends Shape{
     this.shapes[1].pos = this.pointTopRight.pos;
     this.shapes[2].pos = this.pointBottomLeft.pos;
     this.shapes[3].pos = this.pointBottomRight.pos;
-    /*
-
-    this.rotationAxis = UP_VEC; Vec3.sub(this.pointTopRight.pos, this.pointTopLeft.pos);
-    const yAngle = -Math.atan2(this.pointTopLeft.pos.z-this.pointTopRight.pos.z, this.pointTopLeft.pos.x - this.pointTopRight.pos.x);
-
-    const topBottomD = Vec2.distance(Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z), Vec2.make(this.pointBottomLeft.pos.x, this.pointBottomLeft.pos.z));
-    const zAngle = Math.atan2(this.pointTopLeft.pos.y - this.pointBottomLeft.pos.y, topBottomD);
-
-    const leftRightD = Vec2.distance(Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z), Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z));
-    const xAngle = Math.atan2(this.pointTopLeft.pos.y - this.pointTopRight.pos.y, leftRightD);
-
-
-    this.spin += dt;
-    this.setRotation([
-      Quat.makeFromAxis(yAngle - Math.PI/2 , UP_VEC), 
-      Quat.makeFromAxis(zAngle, Vec3.make(0, 0, 1)), 
-      Quat.makeFromAxis(xAngle, Vec3.make(1, 0, 0))
-    ]);
-    */
-
 
     this.pos = Vec3.make(0,0,0);
     this.pos.copy(this.pointBottomLeft.pos);
@@ -210,7 +190,6 @@ export class Rover extends Shape{
     const matWorldUniform = this.program.getUniform(gl, "matWorld")
     //console.log(this);
     let matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
-    //console.log(matWorld.values)
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
     this.model = matWorld;
 

@@ -2394,6 +2394,21 @@ var AsteroidHandler = class {
     this.asteroids[this.asteroids.length - 1].vel = vel;
     this.asteroids[this.asteroids.length - 1].mass = 1e3;
   }
+  addAttackRover(pos, rover) {
+    const f = () => 0.5 - Math.random();
+    const offset_pos = Vec3.multScalar(Vec3.make(f(), f(), f()), 100);
+    const offset_vel = Vec3.multScalar(Vec3.make(f(), f(), f()), 0);
+    const scale = Math.floor(2 + Math.random() * 5);
+    const indxVao = Math.floor(Math.random() * this.vaos.length);
+    const fPos = Vec3.add(pos, offset_pos);
+    const vel = Vec3.normalize(Vec3.add(Vec3.sub(rover, fPos), offset_vel));
+    if (this.verticesVao[indxVao].length < 2) throw new Error("Vertices length cannot be less than 2");
+    this.asteroids.push(
+      new Shape(fPos, Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
+    );
+    this.asteroids[this.asteroids.length - 1].vel = vel;
+    this.asteroids[this.asteroids.length - 1].mass = 1e3;
+  }
   draw(gl) {
     for (let asteroid of this.asteroids)
       asteroid.draw(gl);
@@ -2513,7 +2528,7 @@ var Constraint = class {
     return diff2 > EPS;
   }
 };
-var FLOOR_DIST = 0.7;
+var FLOOR_DIST = 2;
 var SPRING_FORCE = 0.7;
 var DAMPING_FORCE = 0.05;
 var UP_VEC3 = Vec3.make(0, 1, 0);
@@ -2734,7 +2749,7 @@ var Game = class {
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e5);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
-    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(3, 3, 3), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(6, 6, 6), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
   }
   handleKeyDown(e) {
     const ch = e.key.charAt(0).toLowerCase();
@@ -2790,8 +2805,11 @@ var Game = class {
     const pSprinting = this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer;
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), pSprinting ? 2 : 1, this.time, 0.1, 0.9);
-    if (Math.random() > 1 - SPAWN_ASTEROID_PROB)
-      this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z));
+    if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
+      if (Math.random() > 0.8)
+        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z), this.rover.pos);
+      else this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z));
+    }
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
