@@ -1,4 +1,4 @@
-import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createStaticBufferData, createStaticIndexBuffer, loadModel, makeHeightTextureFromData, makeRandomMatrix, showError } from "./helpers/glHelpers.ts";
+import { create3dPosColorInterleavedVao, createBufferData, createFloorVao, createQuodVao, createStaticBufferData, createStaticIndexBuffer, loadModel, makeHeightTextureFromData, makeRandomMatrix, showError } from "./helpers/glHelpers.ts";
 import { ShaderProgram } from "./helpers/shaderProgram";
 import { CUBE_INDICES, CUBE_VERTICES, fireyTriangleColors, getFloorIndices, getFloorVertices, PLANE_INDICES, PLANE_VERTICES, QUAD_VERTICES, rbgTriangleColors, TABLE_INDICES, TABLE_VERTICES, triangleVertices } from "./helpers/loadPerlinFloor.ts"
 
@@ -20,6 +20,8 @@ import { AsteroidHandler } from "./Asteroids.ts";
 import { SPAWN_ASTEROID_PROB } from "./Settings.ts";
 import { Cubemap } from "./Cubemap.ts";
 import { Rover } from "./Rover.ts";
+import { BulletHandler } from "./BulletHandler.ts";
+import { Crosshair } from "./crossair.ts";
 
 
 
@@ -71,7 +73,10 @@ export class Game {
 
   pSystem : ParticleSystem;
   aSystem : AsteroidHandler;
+  bSystem : BulletHandler;
   skybox : Cubemap;
+  crossair : Crosshair;
+
 
   constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object, textures : Object){
     this.width = width;
@@ -94,7 +99,7 @@ export class Game {
 
     const cubeVertices =  createBufferData(gl, CUBE_VERTICES, gl.STATIC_DRAW); 
     const cubeIndices = createStaticIndexBuffer(gl, CUBE_INDICES);
-    const quodVertices = createBufferData(gl, QUAD_VERTICES, gl.STATIC_DRAW);
+    const quodVertices = createBufferData(gl, QUAD_VERTICES , gl.STATIC_DRAW);
 
 
     this.shaders["main"] = new ShaderProgram(gl, shaders["vMain"], shaders["fMain"]);
@@ -102,6 +107,8 @@ export class Game {
     this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
     this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
     this.shaders["cubemap"] = new ShaderProgram(gl, shaders["vCubemap"], shaders["fCubemap"]);
+    this.shaders["crossair"] = new ShaderProgram(gl, shaders["vCrossair"], shaders["fCrossair"]);
+
 
     this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
     this.shaders["main"].bind(gl);
@@ -136,13 +143,16 @@ export class Game {
       Vec3.make(-200, 20.0, -200), Vec3.make(1.0, 1.0, 1.0), this.shaders["light"], 
       this.vaos["cube"], CUBE_INDICES.length, Vec3.make(5,5,5), CUBE_VERTICES, 
     );
+
     this.shaders["main"].bind(gl);
     gl.uniform1i(this.shaders["main"].getUniform(gl, "u_noiseTex"), 0);
 
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 100000);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
-    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(6, 6, 6), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, CUBE_VERTICES);
+    this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
   }
 
   handleKeyDown(e : KeyboardEvent){
@@ -191,11 +201,22 @@ export class Game {
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
 
   }
-
   handleMouseMovement(e : MouseEvent){
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1.0;
   }
+
+  handleMouseDown(e : MouseEvent){
+    if (e.button == 2)
+      this.player.isAiming = true;
+    if (e.button == 0)
+      this.bSystem.add(this.player.pos, this.pCamera.forward, this.time);
+
+  }
+  handleMouseUp(e : MouseEvent){
+    if (e.button == 2) this.player.isAiming = false;
+  }
+
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
@@ -208,8 +229,7 @@ export class Game {
     if (this.boostTimer < 0.0) this.boostTimer += dt*0.5;
     const pSprinting : boolean = this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer;
 
-    //if (Math.floor(this.time)%100 == 0)
-    //this.pSystem.add(Vec3.make(0, 5, 0), Vec3.make(0, 0, 0), this.time, 0.2, 2);
+
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), pSprinting ? 2.0 : 1.0, this.time, 0.1, 0.9);
 
@@ -221,14 +241,13 @@ export class Game {
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
-    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
+    this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist/1.6, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.time, dt);
     this.skybox.update(gl, this.pCamera);
     this.rover.update(dt*0.01, this.perlinFloor, this.perlin3d);
 
 
-    //updateEntitiesPhysics([this.player], dt);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
 
 
@@ -240,7 +259,7 @@ export class Game {
     if (coll.collided)
       this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 0.001;
 
-
+    this.bSystem.update(dt, this.perlin3d, this.perlinFloor, this.pSystem, this.time);
     this.pSystem.update(gl, this.time);
 
   }
@@ -258,10 +277,14 @@ export class Game {
 
   draw(gl : WebGL2RenderingContext ) {
 
+
     gl.clearColor(0.00, 0.00, 0.00, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
     
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
     this.setShaderUniform(gl, this.shaders["main"], matViewProj);
@@ -273,6 +296,10 @@ export class Game {
     gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
     this.shaders["light"].unbind(gl);
 
+    this.shaders["main"].bind(gl);
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), this.player.isAiming ? 1 : 0); // dumb thing, but hey webgl
+    this.shaders["main"].unbind(gl);
+
     this.shapes.forEach(element => {
       element.draw(gl);
     });
@@ -280,16 +307,20 @@ export class Game {
 
     //this.light.draw(gl);
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
-    if (!this.player.dead)
-      this.player.draw(gl);
     this.aSystem.draw(gl);
 
     this.pSystem.draw(gl);
+    this.bSystem.draw(gl);
     this.rover.draw(gl);
     //this.rover.drawSmallOnes(gl);
+    if (!this.player.dead)
+      this.player.draw(gl);
 
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);
+
+    gl.disable(gl.DEPTH_TEST);
+    this.crossair.draw(gl);
     
     gl.finish();
     this.perlinFloor.updateSwaps(gl);

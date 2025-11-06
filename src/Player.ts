@@ -10,10 +10,13 @@ import { Shape } from "./Shape";
 const UP_VEC = Vec3.make(0, 1, 0);
 export class Player extends Shape {
   cDir : Vec3 = Vec3.make(0,0,0);
-
   dead : boolean = false;
   deathTime : number = 0.0;
   fuel : number = 100000;
+  isAiming : boolean = false;
+
+
+
   constructor(
     pos : Vec3, 
     scale : Vec3,
@@ -33,7 +36,7 @@ export class Player extends Shape {
     }
 
     let sub = Vec3.sub(Vec3.make(-moveVec.x*0.5, 0.0, -moveVec.z*0.5), this.rotationAxis);
-    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014*dt));
+    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.02*dt));
     //this.rotationAxis = Vec3.multScalar(Vec3.make(-moveVec.z, 0.0, moveVec.x), 0.01*dt);
     if (this.rotationAxis.x == 0.0 && this.rotationAxis.y == 0.0 && this.rotationAxis.z == 0)
       this.rotationAxis = UP_VEC;
@@ -51,9 +54,8 @@ export class Player extends Shape {
 
     this.vel.x *= 0.99;
     this.vel.z *= 0.99;
-    const subY = Vec3.sub(Vec3.make(0.0, 1.0, 0.0), this.rotationAxis);
-    if (moveVec.x == 0 && moveVec.z == 0)
-      this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 0.005*dt));
+    //const subY = Vec3.sub(Vec3.make(0.0, 1.0, 0.0), this.rotationAxis);
+    //if (moveVec.x == 0 && moveVec.z == 0) this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 0.1*dt));
 
     this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2.0*dt) );
   }
@@ -63,6 +65,10 @@ export class Player extends Shape {
     for (let j = 0; j < 100; j++) {
       particleSystem.add(this.pos, Vec3.make(0,0,0), 1+Math.random()*3.0, time, 1, 2);
     }
-
+  }
+  draw(gl: WebGL2RenderingContext): void {
+    gl.enable(gl.BLEND);
+    super.draw(gl);
+    gl.disable(gl.BLEND);
   }
 }

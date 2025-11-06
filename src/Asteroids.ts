@@ -1,4 +1,6 @@
+import { BulletHandler } from "./BulletHandler";
 import { Collision } from "./Collision";
+import { Vec2 } from "./glMath/vec2";
 import { Vec3 } from "./glMath/vec3";
 import { convexHull } from "./helpers/ConvexHull";
 import { webglVerticesFromCoupledVertices } from "./helpers/CoupledVertex";
@@ -10,6 +12,14 @@ import { ParticleSystem } from "./ParticleSystem";
 import { PerlinFloor } from "./PerlinFloor";
 import { Player } from "./Player";
 import { Shape } from "./Shape";
+
+
+enum AsteroidCollision {
+  NOTHING,
+  PLAYER,
+  FLOOR,
+  BULLET
+}
 
 
 
@@ -86,30 +96,45 @@ export class AsteroidHandler {
     }
     this.asteroids.splice(i, 1);
   }
-  update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, time : number, dt : number){
+  update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, bulletHandler : BulletHandler, time : number, dt : number){
     for (let i = 0; i < this.asteroids.length; i++) {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25*dt)); 
       this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2.0*this.asteroids[i].scale.x, time, 0.2, 1.0);
-
-      if (this.checkIfNearPlayer(i, player)){
-        const coll = Collision.checkShapeCollision(this.asteroids[i], player);
-        if (coll.collided){
-          player.deadAnimation(time, particleSystem);
-          this.killAsteroid(i, particleSystem, time);
-          i--;
-          continue;
-        }
-      }
-
-      if (this.asteroids[i].pos.y > 25) continue;
-      const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
-      if (coll.collided){
+      const coll : AsteroidCollision = this.checkCollision(i, perlin, perlinFloor, player, bulletHandler);
+      if (coll != AsteroidCollision.NOTHING){
         this.killAsteroid(i, particleSystem, time);
         i--;
       }
+      if (coll == AsteroidCollision.PLAYER) player.deadAnimation(time, particleSystem);
+
     }
   }
+
+  checkCollision(i : number, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, bulletHandler : BulletHandler) : AsteroidCollision{
+    for (let j = 0; j < bulletHandler.bullets.length; j++) {
+      if (Vec3.distance(this.asteroids[i].pos, bulletHandler.bullets[j].pos) > this.asteroids[i].scale.x+3) continue;
+      const coll = Collision.checkShapeCollision(this.asteroids[i], bulletHandler.bullets[j]);
+      if (coll.collided){
+        return AsteroidCollision.BULLET;
+      }
+    }
+
+
+    if (this.checkIfNearPlayer(i, player)){
+      const coll = Collision.checkShapeCollision(this.asteroids[i], player);
+      if (coll.collided)
+        return AsteroidCollision.PLAYER;
+    }
+
+    if (this.asteroids[i].pos.y > 25) return AsteroidCollision.NOTHING;
+    const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
+
+    if (coll.collided) return AsteroidCollision.FLOOR;
+    return AsteroidCollision.NOTHING;
+  }
+
+
   add(pos : Vec3){
     const f = () : number => 0.5 - Math.random();
 
@@ -122,7 +147,6 @@ export class AsteroidHandler {
       new Shape(Vec3.add(pos, offset_pos), Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
     );
     this.asteroids[this.asteroids.length-1].vel = vel;
-    this.asteroids[this.asteroids.length-1].mass = 1000.0;
   }
   addAttackRover(pos : Vec3, rover : Vec3){
     const f = () : number => 0.5 - Math.random();
@@ -141,7 +165,6 @@ export class AsteroidHandler {
       new Shape(fPos, Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
     );
     this.asteroids[this.asteroids.length-1].vel = vel;
-    this.asteroids[this.asteroids.length-1].mass = 1000.0;
   }
   draw(gl : WebGL2RenderingContext){
     for (let asteroid of this.asteroids)

@@ -37,7 +37,7 @@ class Constraint {
 
 
 
-const FLOOR_DIST = 2.0;
+const FLOOR_DIST = 1.0;
 const SPRING_FORCE = 0.7;
 const DAMPING_FORCE = 0.05;
 const UP_VEC : Vec3 = Vec3.make(0, 1, 0);

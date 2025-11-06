@@ -9,6 +9,7 @@ export class Camera {
   forward : Vec3;
   perpective : Mat4x4;
   lookAtMatrix : Mat4x4;
+  offset_pos : Vec3;
 
   constructor(initial_pos : Vec3, width : number, height : number, Fov : number, zNear : number, zFar : number){
     this.perpective = Mat4x4.perspective(height/width, Fov, zNear, zFar);
@@ -16,7 +17,7 @@ export class Camera {
     this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
   }
 
-  update(moveVec : Vec3, mouseMoveVec: Vec2, player_pos : Vec3, camera_dist: number, dt : number){
+  update(mouseMoveVec: Vec2, player_pos : Vec3, camera_dist: number, dt : number){
     const SENSIBILITY = 0.25;
 
     this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
@@ -30,10 +31,13 @@ export class Camera {
     this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY*dt*0.01));
     this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
 
+    const offset = Mat4x4.multVec4(moveMatrix, Vec4.make(0.3, 0.5, 0.0, 1.0));
+    this.offset_pos = Vec3.add(this.pos, Vec3.make(offset.x, offset.y, offset.z));
+
     this.lookAtMatrix = this.getLookAt();
   }
   getLookAt(){
-    return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);
+    return Mat4x4.LookAtRH(this.offset_pos, Vec3.add(this.offset_pos, this.forward), UP_VEC);
   }
 
 }

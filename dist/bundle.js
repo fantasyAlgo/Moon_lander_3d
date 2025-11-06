@@ -31,6 +31,27 @@ function createStaticIndexBuffer(gl, data) {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
   return buffer;
 }
+function createQuodVao(gl, vertexBuffer, posAttrib) {
+  const vao = gl.createVertexArray();
+  if (!vao) {
+    throw new Error("A problem occurred with the creation of the VAO");
+  }
+  gl.bindVertexArray(vao);
+  gl.enableVertexAttribArray(posAttrib);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.vertexAttribPointer(
+    posAttrib,
+    2,
+    gl.FLOAT,
+    false,
+    2 * Float32Array.BYTES_PER_ELEMENT,
+    0
+  );
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+  return vao;
+}
 function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib, normalAttrib, uvAttrib) {
   const vao = gl.createVertexArray();
   if (!vao) {
@@ -397,6 +418,9 @@ var Vec3 = class _Vec3 {
     let N = _Vec3.cross(C, AB);
     if (_Vec3.dot(N, AO) < 0) N = _Vec3.multScalar(N, -1);
     return _Vec3.normalize(N);
+  }
+  static copy(v) {
+    return _Vec3.make(v.x, v.y, v.z);
   }
   static average(vs) {
     let sumV = _Vec3.make(0, 0, 0);
@@ -1367,12 +1391,13 @@ var Camera = class {
   forward;
   perpective;
   lookAtMatrix;
+  offset_pos;
   constructor(initial_pos, width, height, Fov, zNear, zFar) {
     this.perpective = Mat4x4.perspective(height / width, Fov, zNear, zFar);
     this.pos = initial_pos;
     this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
   }
-  update(moveVec, mouseMoveVec, player_pos, camera_dist, dt) {
+  update(mouseMoveVec, player_pos, camera_dist, dt) {
     const SENSIBILITY = 0.25;
     this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
     this.forward = Vec3.normalize(Vec3.sub(player_pos, this.pos));
@@ -1380,10 +1405,12 @@ var Camera = class {
     const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
     this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY * dt * 0.01));
     this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
+    const offset = Mat4x4.multVec4(moveMatrix, Vec4.make(0.3, 0.5, 0, 1));
+    this.offset_pos = Vec3.add(this.pos, Vec3.make(offset.x, offset.y, offset.z));
     this.lookAtMatrix = this.getLookAt();
   }
   getLookAt() {
-    return Mat4x4.LookAtRH(this.pos, Vec3.add(this.pos, this.forward), UP_VEC);
+    return Mat4x4.LookAtRH(this.offset_pos, Vec3.add(this.offset_pos, this.forward), UP_VEC);
   }
 };
 
@@ -1447,11 +1474,11 @@ var Shape = class {
   model = Mat4x4.identity();
   vel = Vec3.make(0, 0, 0);
   tForce = Vec3.make(0, 0, 0);
-  mass = 1;
   rot;
   rotationAxis = Vec3.make(0, 1, 0);
   rotationAngle = 0;
   modelData = [];
+  time;
   setRotation(quaterions) {
     if (quaterions.length == 0) return;
     let q = quaterions[0];
@@ -1767,13 +1794,14 @@ var Player = class extends Shape {
   dead = false;
   deathTime = 0;
   fuel = 1e5;
+  isAiming = false;
   update(moveVec, camera, shiftPressed, dt) {
     if (this.dead) {
       this.deathTime += dt;
       return;
     }
     let sub = Vec3.sub(Vec3.make(-moveVec.x * 0.5, 0, -moveVec.z * 0.5), this.rotationAxis);
-    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.014 * dt));
+    this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(sub, 0.02 * dt));
     if (this.rotationAxis.x == 0 && this.rotationAxis.y == 0 && this.rotationAxis.z == 0)
       this.rotationAxis = UP_VEC2;
     this.rotationAxis = Vec3.normalize(this.rotationAxis);
@@ -1786,9 +1814,6 @@ var Player = class extends Shape {
       this.vel = Vec3.add(this.vel, Vec3.multScalar(perp, 5e-4 * dt * speed));
     this.vel.x *= 0.99;
     this.vel.z *= 0.99;
-    const subY = Vec3.sub(Vec3.make(0, 1, 0), this.rotationAxis);
-    if (moveVec.x == 0 && moveVec.z == 0)
-      this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 5e-3 * dt));
     this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2 * dt));
   }
   deadAnimation(time, particleSystem) {
@@ -1796,6 +1821,11 @@ var Player = class extends Shape {
     for (let j = 0; j < 100; j++) {
       particleSystem.add(this.pos, Vec3.make(0, 0, 0), 1 + Math.random() * 3, time, 1, 2);
     }
+  }
+  draw(gl) {
+    gl.enable(gl.BLEND);
+    super.draw(gl);
+    gl.disable(gl.BLEND);
   }
 };
 
@@ -2359,27 +2389,36 @@ var AsteroidHandler = class {
     }
     this.asteroids.splice(i, 1);
   }
-  update(particleSystem, perlin, perlinFloor, player, time, dt) {
+  update(particleSystem, perlin, perlinFloor, player, bulletHandler, time, dt) {
     for (let i = 0; i < this.asteroids.length; i++) {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25 * dt));
       this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2 * this.asteroids[i].scale.x, time, 0.2, 1);
-      if (this.checkIfNearPlayer(i, player)) {
-        const coll2 = Collision.checkShapeCollision(this.asteroids[i], player);
-        if (coll2.collided) {
-          player.deadAnimation(time, particleSystem);
-          this.killAsteroid(i, particleSystem, time);
-          i--;
-          continue;
-        }
-      }
-      if (this.asteroids[i].pos.y > 25) continue;
-      const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
-      if (coll.collided) {
+      const coll = this.checkCollision(i, perlin, perlinFloor, player, bulletHandler);
+      if (coll != 0 /* NOTHING */) {
         this.killAsteroid(i, particleSystem, time);
         i--;
       }
+      if (coll == 1 /* PLAYER */) player.deadAnimation(time, particleSystem);
     }
+  }
+  checkCollision(i, perlin, perlinFloor, player, bulletHandler) {
+    for (let j = 0; j < bulletHandler.bullets.length; j++) {
+      if (Vec3.distance(this.asteroids[i].pos, bulletHandler.bullets[j].pos) > this.asteroids[i].scale.x + 3) continue;
+      const coll2 = Collision.checkShapeCollision(this.asteroids[i], bulletHandler.bullets[j]);
+      if (coll2.collided) {
+        return 3 /* BULLET */;
+      }
+    }
+    if (this.checkIfNearPlayer(i, player)) {
+      const coll2 = Collision.checkShapeCollision(this.asteroids[i], player);
+      if (coll2.collided)
+        return 1 /* PLAYER */;
+    }
+    if (this.asteroids[i].pos.y > 25) return 0 /* NOTHING */;
+    const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
+    if (coll.collided) return 2 /* FLOOR */;
+    return 0 /* NOTHING */;
   }
   add(pos) {
     const f = () => 0.5 - Math.random();
@@ -2392,7 +2431,6 @@ var AsteroidHandler = class {
       new Shape(Vec3.add(pos, offset_pos), Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
     );
     this.asteroids[this.asteroids.length - 1].vel = vel;
-    this.asteroids[this.asteroids.length - 1].mass = 1e3;
   }
   addAttackRover(pos, rover) {
     const f = () => 0.5 - Math.random();
@@ -2407,7 +2445,6 @@ var AsteroidHandler = class {
       new Shape(fPos, Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
     );
     this.asteroids[this.asteroids.length - 1].vel = vel;
-    this.asteroids[this.asteroids.length - 1].mass = 1e3;
   }
   draw(gl) {
     for (let asteroid of this.asteroids)
@@ -2528,7 +2565,7 @@ var Constraint = class {
     return diff2 > EPS;
   }
 };
-var FLOOR_DIST = 2;
+var FLOOR_DIST = 1;
 var SPRING_FORCE = 0.7;
 var DAMPING_FORCE = 0.05;
 var UP_VEC3 = Vec3.make(0, 1, 0);
@@ -2652,6 +2689,87 @@ var Rover = class extends Shape {
   }
 };
 
+// src/BulletHandler.ts
+var BulletHandler = class _BulletHandler {
+  constructor(program, vao, nIndices, vertices = new Float32Array([])) {
+    this.program = program;
+    this.vao = vao;
+    this.nIndices = nIndices;
+    this.vertices = vertices;
+  }
+  static MAX_CUNCURRENT_BULLETS = 2;
+  static MAX_TIME = 200;
+  static BULLET_SIZE = Vec3.make(0.3, 0.3, 1);
+  bullets = [];
+  destroy(i, particleSystem, time) {
+    for (let j = 0; j < 20; j++)
+      particleSystem.add(this.bullets[i].pos, Vec3.make(0, 0, 0), 1, time, 1, 2);
+    this.bullets.splice(i, 1);
+  }
+  update(dt, perlin, perlinFloor, particleSystem, time) {
+    for (let j = 0; j < this.bullets.length; j++) {
+      const b = this.bullets[j];
+      b.pos = Vec3.add(b.pos, Vec3.multScalar(b.vel, dt * 0.2));
+      if (time - b.time > _BulletHandler.MAX_TIME) {
+        this.destroy(j--, particleSystem, time);
+        continue;
+      }
+      if (perlinFloor.getValue(perlin, b.pos.x, b.pos.z) > b.pos.y) this.destroy(j--, particleSystem, time);
+    }
+  }
+  add(pos, forward, current_time) {
+    this.bullets.push(
+      new Bullet(pos, _BulletHandler.BULLET_SIZE, this.program, this.vao, this.nIndices, this.vertices, forward)
+    );
+    this.bullets[this.bullets.length - 1].vel = forward;
+    this.bullets[this.bullets.length - 1].time = current_time;
+  }
+  draw(gl) {
+    this.bullets.forEach((b) => {
+      b.draw(gl);
+      b.updateWorldData();
+    });
+  }
+};
+var Bullet = class extends Shape {
+  constructor(pos, scale, program, vao, numIndices, vertices = new Float32Array([]), forward) {
+    super(pos, scale, program, vao, numIndices, vertices);
+    this.program = program;
+    this.numIndices = numIndices;
+    this.vertices = vertices;
+    const posVel = Vec3.add(pos, Vec3.multScalar(forward, scale.x));
+    this.orthMat = Mat4x4.rotFromPlane(pos, posVel, Vec3.make(0, 0, 0));
+  }
+  orthMat;
+  draw(gl) {
+    const matWorldUniform = this.program.getUniform(gl, "matWorld");
+    let matWorld = this.orthMat;
+    matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
+    this.model = matWorld;
+    this.program.bind(gl);
+    gl.uniformMatrix4fv(matWorldUniform, false, matWorld.values);
+    gl.bindVertexArray(this.vao);
+    gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+  }
+};
+
+// src/crossair.ts
+var Crosshair = class {
+  constructor(gl, quodVertices, shader) {
+    this.shader = shader;
+    const vPosQuod = this.shader.getAttrib(gl, "aPos");
+    this.vao = createQuodVao(gl, quodVertices, vPosQuod);
+  }
+  vao;
+  draw(gl) {
+    this.shader.bind(gl);
+    gl.bindVertexArray(this.vao);
+    gl.drawArrays(gl.TRIANGLES, 0, 1 * 6);
+    gl.bindVertexArray(null);
+  }
+};
+
 // src/Game.ts
 var Game = class {
   time = 0;
@@ -2683,7 +2801,9 @@ var Game = class {
   rover;
   pSystem;
   aSystem;
+  bSystem;
   skybox;
+  crossair;
   constructor(gl, width, height, shaders, models, textures) {
     this.width = width;
     this.height = height;
@@ -2708,6 +2828,7 @@ var Game = class {
     this.shaders["floor"] = new ShaderProgram(gl, shaders["vFloor"], shaders["fFloor"]);
     this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
     this.shaders["cubemap"] = new ShaderProgram(gl, shaders["vCubemap"], shaders["fCubemap"]);
+    this.shaders["crossair"] = new ShaderProgram(gl, shaders["vCrossair"], shaders["fCrossair"]);
     this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
     this.shaders["main"].bind(gl);
     console.log("error: ", gl.getError());
@@ -2749,7 +2870,9 @@ var Game = class {
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e5);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
-    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(6, 6, 6), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, CUBE_VERTICES);
+    this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
   }
   handleKeyDown(e) {
     const ch = e.key.charAt(0).toLowerCase();
@@ -2794,6 +2917,15 @@ var Game = class {
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1;
   }
+  handleMouseDown(e) {
+    if (e.button == 2)
+      this.player.isAiming = true;
+    if (e.button == 0)
+      this.bSystem.add(this.player.pos, this.pCamera.forward, this.time);
+  }
+  handleMouseUp(e) {
+    if (e.button == 2) this.player.isAiming = false;
+  }
   update(gl, dt) {
     this.isRunning = !(this.player.deathTime > 600);
     this.time += dt;
@@ -2812,9 +2944,9 @@ var Game = class {
     }
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
-    this.pCamera.update(Vec3.multScalar(this.moveVector, this.isShiftPressed ? 4 : 1), this.mouseMoveVector, this.player.pos, this.player.camera_dist, dt);
+    this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist / 1.6, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.time, dt);
     this.skybox.update(gl, this.pCamera);
     this.rover.update(dt * 0.01, this.perlinFloor, this.perlin3d);
     updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
@@ -2824,6 +2956,7 @@ var Game = class {
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
     if (coll.collided)
       this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 1e-3;
+    this.bSystem.update(dt, this.perlin3d, this.perlinFloor, this.pSystem, this.time);
     this.pSystem.update(gl, this.time);
   }
   setShaderUniform(gl, shader, matViewProj) {
@@ -2839,6 +2972,7 @@ var Game = class {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     const matViewProj = Mat4x4.multMatrix(this.pCamera.lookAtMatrix, this.pCamera.perpective);
     this.setShaderUniform(gl, this.shaders["main"], matViewProj);
     this.setShaderUniform(gl, this.shaders["floor"], matViewProj);
@@ -2847,17 +2981,23 @@ var Game = class {
     gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl, "matViewProj"), false, matViewProj.values);
     gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
     this.shaders["light"].unbind(gl);
+    this.shaders["main"].bind(gl);
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), this.player.isAiming ? 1 : 0);
+    this.shaders["main"].unbind(gl);
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
     this.perlinFloor.draw(gl, this.pCamera.pos, this.pCamera.forward);
-    if (!this.player.dead)
-      this.player.draw(gl);
     this.aSystem.draw(gl);
     this.pSystem.draw(gl);
+    this.bSystem.draw(gl);
     this.rover.draw(gl);
+    if (!this.player.dead)
+      this.player.draw(gl);
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);
+    gl.disable(gl.DEPTH_TEST);
+    this.crossair.draw(gl);
     gl.finish();
     this.perlinFloor.updateSwaps(gl);
     const error = gl.getError();
@@ -2882,10 +3022,10 @@ async function loadImage(url) {
 function saveInput() {
   const weightButton = document.getElementById("weight");
   const velocityButton = document.getElementById("velocity");
-  const difficulyButtom = document.getElementById("difficulty");
+  const difficultyButtom = document.getElementById("difficulty");
   var weight = weightButton.value;
   var velocity = velocityButton.value;
-  var difficulty = difficulyButtom.value;
+  var difficulty = difficultyButtom.value;
   localStorage.setItem("weight", weight == "" ? "200" : weight);
   localStorage.setItem("difficulty", difficulty.valueOf());
   localStorage.setItem(
@@ -2921,7 +3061,6 @@ function initGame(shaders, models, textures) {
     game.draw(gl);
     if (game.isRunning)
       requestAnimationFrame(step);
-    console.log("aaa");
     if (!game.isRunning) {
       if (!loader) throw new Error("loader didnt load");
       if (!gameContainer) throw new Error("gameContainer didnt load");
@@ -2948,7 +3087,9 @@ async function getShaders() {
     "fParticle",
     "vParticle",
     "vCubemap",
-    "fCubemap"
+    "fCubemap",
+    "vCrossair",
+    "fCrossair"
   ];
   let object = {};
   for (let i = 0; i < shader_names.length; i++)
@@ -3024,7 +3165,17 @@ document.addEventListener("mousemove", (e) => {
     game.handleMouseMovement(e);
   }
 });
-document.addEventListener("click", () => {
+document.addEventListener("mousedown", (e) => {
+  if (game.isRunning) {
+    game.handleMouseDown(e);
+  }
+});
+document.addEventListener("mouseup", (e) => {
   if (game.isRunning)
+    game.handleMouseUp(e);
+});
+document.addEventListener("click", (e) => {
+  if (game.isRunning) {
     canvas.requestPointerLock();
+  }
 });

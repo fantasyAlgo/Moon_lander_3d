@@ -6,11 +6,12 @@ in vec3 vOutNormal;
 in vec3 vOutPos;
 in vec2 vOutUV;
 
+
 uniform vec3 lightColor;
 uniform vec3 lightPos;
 uniform vec3 cameraPos;
 uniform sampler2D u_noiseTex;
-
+uniform int allowTransparency; // Webgl does not have gluniform1b like in opengl (at least afaik), so i got to use ints for booleans
 
 out vec4 outputColor;
 void main(){
@@ -30,5 +31,6 @@ void main(){
 
   vec3 light = lightColor*(diffuse + ambient + specular  + noise_height*0.05f) ;
   outputColor = vec4(vOutColor, 1.0f) * vec4(light, 1.0);
+  if (allowTransparency == 1) outputColor.a = 0.1;
   //outputColor = vec4(vOutNormal, 1.0)*vec4(lightColor, 1.0) +  0.01f*diffuse + 0.0001f*vOutColor.x;
 }

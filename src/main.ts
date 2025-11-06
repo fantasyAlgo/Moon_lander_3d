@@ -22,10 +22,10 @@ async function loadImage(url : string) : Promise<ImageBitmap> {
 function saveInput() {
   const weightButton = document.getElementById("weight") as HTMLSelectElement;
   const velocityButton = document.getElementById("velocity") as HTMLSelectElement;
-  const difficulyButtom = document.getElementById("difficulty") as HTMLSelectElement;
+  const difficultyButtom = document.getElementById("difficulty") as HTMLSelectElement;
   var weight = weightButton.value;
   var velocity = velocityButton.value;
-  var difficulty = difficulyButtom.value;
+  var difficulty = difficultyButtom.value;
 
   localStorage.setItem("weight", weight == "" ? "200" : weight);
   localStorage.setItem("difficulty", difficulty.valueOf());
@@ -71,7 +71,6 @@ function initGame(shaders : Object, models : Object, textures : Object){
     game.draw(gl);
     if (game.isRunning)
       requestAnimationFrame(step);
-    console.log("aaa");
     if (!game.isRunning){
       if (!loader) throw new Error("loader didnt load");
       if (!gameContainer) throw new Error("gameContainer didnt load");
@@ -91,7 +90,7 @@ async function getShaders() {
     const shader_source = "src/shaders";
 
     const shader_names = [
-      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor", "fParticle", "vParticle", "vCubemap", "fCubemap"
+      "fMain", "fLight", "vLight", "vMain", "vFloor", "fFloor", "fParticle", "vParticle", "vCubemap", "fCubemap", "vCrossair", "fCrossair"
     ]; 
 
     let object: { [Name: string]: string} = {};
@@ -185,8 +184,25 @@ document.addEventListener("mousemove", (e) => {
   }
 });
 
-document.addEventListener("click", () => {
+document.addEventListener("mousedown", (e : MouseEvent) => {
+  if (game.isRunning){
+    game.handleMouseDown(e);
+  }
+
+});
+
+document.addEventListener("mouseup", (e : MouseEvent) => {
   if (game.isRunning)
+    game.handleMouseUp(e);
+
+});
+
+
+
+
+document.addEventListener("click", (e : MouseEvent) => {
+  if (game.isRunning){
     canvas.requestPointerLock();
+  }
 });
 

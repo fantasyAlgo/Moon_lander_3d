@@ -8,11 +8,11 @@ export class Shape {
   public model : Mat4x4 = Mat4x4.identity();
   public vel : Vec3 = Vec3.make(0,0,0);
   public tForce : Vec3 = Vec3.make(0,0,0);
-  public mass : number = 1.0;
   public rot : Quat;
   public rotationAxis : Vec3 = Vec3.make(0, 1, 0);
   public rotationAngle : number = 0.0;
   public modelData : Vec3[] = [];
+  public time : number;
 
   constructor(
     public pos : Vec3, 
@@ -63,6 +63,7 @@ export class Shape {
     gl.drawElements(gl.TRIANGLES, this.numIndices, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
   }
+
 
   getCenter(){
     let sum : Vec3 = Vec3.make(0,0,0);

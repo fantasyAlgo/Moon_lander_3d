@@ -36,6 +36,29 @@ export function createStaticIndexBuffer(gl : WebGL2RenderingContext, data : Uint
 }
 
 
+export function createQuodVao(gl : WebGL2RenderingContext, vertexBuffer : WebGLBuffer, posAttrib : number) : WebGLVertexArrayObject {
+  const vao : WebGLVertexArrayObject = gl.createVertexArray();
+  if (!vao){
+    throw new Error("A problem occurred with the creation of the VAO");
+  }
+  gl.bindVertexArray(vao);
+  gl.enableVertexAttribArray(posAttrib);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.vertexAttribPointer(
+    posAttrib, 2, gl.FLOAT, false, 2*Float32Array.BYTES_PER_ELEMENT, 0
+  );
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+  gl.bindVertexArray(null);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); 
+
+  return vao;
+
+}
+
+
 export function create3dPosColorInterleavedVao(gl : WebGL2RenderingContext, 
   vertexBuffer : WebGLBuffer, indexBuffer : WebGLBuffer,
   posAttrib : number, colorAttrib : number, normalAttrib : number, uvAttrib : number

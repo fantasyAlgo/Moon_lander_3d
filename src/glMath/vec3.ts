@@ -102,6 +102,9 @@ export class Vec3 {
     if (Vec3.dot(N, AO) < 0) N = Vec3.multScalar(N, -1.0);
     return Vec3.normalize(N);
   }
+  static copy(v : Vec3){
+    return Vec3.make(v.x, v.y, v.z);
+  }
 
   static average(vs : Vec3[]){
     let sumV : Vec3 = Vec3.make(0,0,0);

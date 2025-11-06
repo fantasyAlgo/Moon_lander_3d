@@ -10,7 +10,7 @@ import { Shape } from "./Shape";
 const ORIGIN : Vec3 = Vec3.make(0,0,0);
 
 export class Collision {
-  collided : Boolean;
+  collided : boolean;
   normal : Vec3;
   depth : number;
   contact_points : Vec3[];
@@ -40,7 +40,7 @@ export class Collision {
     //console.log("data: ", data);
     let floorPoints : Vec3[] = [];
     //console.log(abab, data);
-    const f = (e) => {
+    const f = (e : Vec2) => {
       floorPoints.push(Vec3.make(
         e.x, 
         pHandler.getValue(p, e.x, e.y),
@@ -57,7 +57,6 @@ export class Collision {
     //console.log(floorPoints);
     return Collision.GJK(data, floorPoints, Vec3.make(1, 0, 0));
   }
-
 
 
   static GJK(data1 : Vec3[], data2 : Vec3[], initial_dir : Vec3) : Collision {
@@ -80,7 +79,7 @@ export class Collision {
 
 
 
-  static handleSimplex(simplex : Vec3[], dir : Vec3) : Boolean {
+  static handleSimplex(simplex : Vec3[], dir : Vec3) : boolean {
     if (simplex.length <= 1 || simplex.length > 4) throw new Error("GJK produced a simplex with an invalid number of vertices");
 
     if (simplex.length == 2) return Collision.setNewPoint(simplex, dir);
