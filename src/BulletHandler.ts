@@ -33,7 +33,7 @@ export class BulletHandler {
   update(dt : number, perlin : Perlin3d, perlinFloor : PerlinFloor, particleSystem : ParticleSystem, time : number){
     for (let j = 0; j < this.bullets.length; j++) {
       const b = this.bullets[j];
-      b.pos = Vec3.add(b.pos, Vec3.multScalar(b.vel, dt*0.2))
+      b.pos = Vec3.add(b.pos, Vec3.multScalar(b.vel, dt*0.5))
       if (time-b.time > BulletHandler.MAX_TIME){
         this.destroy(j--, particleSystem, time);
         continue;

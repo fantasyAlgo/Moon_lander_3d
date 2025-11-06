@@ -2403,7 +2403,7 @@ var AsteroidHandler = class {
   }
   checkIfNearPlayer(idx, player) {
     const pos = this.asteroids[idx].pos;
-    return Vec3.distance(pos, player.pos) < this.asteroids[idx].scale.x + 3;
+    return Vec3.distance(pos, player.pos) < this.asteroids[idx].scale.x + 4;
   }
   killAsteroid(i, particleSystem, time) {
     for (let j = 0; j < 100; j++) {
@@ -2411,20 +2411,20 @@ var AsteroidHandler = class {
     }
     this.asteroids.splice(i, 1);
   }
-  update(particleSystem, perlin, perlinFloor, player, bulletHandler, time, dt) {
+  update(particleSystem, perlin, perlinFloor, player, bulletHandler, rover, time, dt) {
     for (let i = 0; i < this.asteroids.length; i++) {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25 * dt));
       this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2 * this.asteroids[i].scale.x, time, 0.2, 1);
-      const coll = this.checkCollision(i, perlin, perlinFloor, player, bulletHandler);
+      const coll = this.checkCollision(i, perlin, perlinFloor, player, rover, bulletHandler);
       if (coll != 0 /* NOTHING */) {
         this.killAsteroid(i, particleSystem, time);
         i--;
       }
-      if (coll == 1 /* PLAYER */) player.deadAnimation(time, particleSystem);
+      if (coll == 1 /* PLAYER */ || coll == 4 /* ROVER */) player.deadAnimation(time, particleSystem);
     }
   }
-  checkCollision(i, perlin, perlinFloor, player, bulletHandler) {
+  checkCollision(i, perlin, perlinFloor, player, rover, bulletHandler) {
     for (let j = 0; j < bulletHandler.bullets.length; j++) {
       if (Vec3.distance(this.asteroids[i].pos, bulletHandler.bullets[j].pos) > this.asteroids[i].scale.x + 3) continue;
       const coll2 = Collision.checkShapeCollision(this.asteroids[i], bulletHandler.bullets[j]);
@@ -2436,6 +2436,13 @@ var AsteroidHandler = class {
       const coll2 = Collision.checkShapeCollision(this.asteroids[i], player);
       if (coll2.collided)
         return 1 /* PLAYER */;
+    }
+    if (this.checkIfNearPlayer(i, rover)) {
+      const coll2 = Collision.checkShapeCollision(this.asteroids[i], rover);
+      if (coll2.collided) {
+        console.log("baka tamo emo cokkodrilli e lorangotango");
+        return 4 /* ROVER */;
+      }
     }
     if (this.asteroids[i].pos.y > 25) return 0 /* NOTHING */;
     const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);
@@ -2732,7 +2739,7 @@ var BulletHandler = class _BulletHandler {
   update(dt, perlin, perlinFloor, particleSystem, time) {
     for (let j = 0; j < this.bullets.length; j++) {
       const b = this.bullets[j];
-      b.pos = Vec3.add(b.pos, Vec3.multScalar(b.vel, dt * 0.2));
+      b.pos = Vec3.add(b.pos, Vec3.multScalar(b.vel, dt * 0.5));
       if (time - b.time > _BulletHandler.MAX_TIME) {
         this.destroy(j--, particleSystem, time);
         continue;
@@ -2971,12 +2978,13 @@ var Game = class {
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist / 1.6, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.rover, this.time, dt);
     this.skybox.update(gl, this.pCamera);
     this.rover.update(dt * 0.01, this.perlinFloor, this.perlin3d);
     updateEntitiesPhysics([this.player], dt);
     this.light.updateWorldData();
     this.player.updateWorldData();
+    this.rover.updateWorldData();
     this.mouseMoveVector = Vec2.make(0, 0);
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
     if (coll.collided)
@@ -2988,7 +2996,7 @@ var Game = class {
     shader.bind(gl);
     gl.uniformMatrix4fv(shader.getUniform(gl, "matViewProj"), false, matViewProj.values);
     gl.uniform3f(shader.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
-    gl.uniform3f(shader.getUniform(gl, "lightDir"), 1, 1, 0);
+    gl.uniform3f(shader.getUniform(gl, "lightDir"), 0.7, 1, 0);
     gl.uniform3f(shader.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     shader.unbind(gl);
   }

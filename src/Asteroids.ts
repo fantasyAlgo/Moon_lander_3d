@@ -19,7 +19,8 @@ enum AsteroidCollision {
   NOTHING,
   PLAYER,
   FLOOR,
-  BULLET
+  BULLET,
+  ROVER,
 }
 
 
@@ -87,9 +88,9 @@ export class AsteroidHandler {
 
     }
   }
-  checkIfNearPlayer(idx : number, player : Player){
+  checkIfNearPlayer(idx : number, shape : Shape, shapeDist : number = 3){
     const pos = this.asteroids[idx].pos;
-    return Vec3.distance(pos, player.pos) < (this.asteroids[idx].scale.x+3);
+    return  Vec3.distance(pos, shape.pos) < (this.asteroids[idx].scale.x+shapeDist);
   }
   killAsteroid(i : number, particleSystem : ParticleSystem, time : number){
     for (let j = 0; j < 100; j++) {
@@ -97,22 +98,22 @@ export class AsteroidHandler {
     }
     this.asteroids.splice(i, 1);
   }
-  update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, bulletHandler : BulletHandler, time : number, dt : number){
+  update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, bulletHandler : BulletHandler, rover : Rover, time : number, dt : number){
     for (let i = 0; i < this.asteroids.length; i++) {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25*dt)); 
       this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2.0*this.asteroids[i].scale.x, time, 0.2, 1.0);
-      const coll : AsteroidCollision = this.checkCollision(i, perlin, perlinFloor, player, bulletHandler);
+      const coll : AsteroidCollision = this.checkCollision(i, perlin, perlinFloor, player, rover, bulletHandler);
       if (coll != AsteroidCollision.NOTHING){
         this.killAsteroid(i, particleSystem, time);
         i--;
       }
-      if (coll == AsteroidCollision.PLAYER) player.deadAnimation(time, particleSystem);
+      if (coll == AsteroidCollision.PLAYER || coll == AsteroidCollision.ROVER) player.deadAnimation(time, particleSystem);
 
     }
   }
 
-  checkCollision(i : number, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, bulletHandler : BulletHandler) : AsteroidCollision{
+  checkCollision(i : number, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, rover : Rover, bulletHandler : BulletHandler) : AsteroidCollision{
     for (let j = 0; j < bulletHandler.bullets.length; j++) {
       if (Vec3.distance(this.asteroids[i].pos, bulletHandler.bullets[j].pos) > this.asteroids[i].scale.x+3) continue;
       const coll = Collision.checkShapeCollision(this.asteroids[i], bulletHandler.bullets[j]);
@@ -127,6 +128,14 @@ export class AsteroidHandler {
       if (coll.collided)
         return AsteroidCollision.PLAYER;
     }
+
+    if (this.checkIfNearPlayer(i, rover, 5)){
+      const coll = Collision.checkShapeCollision(this.asteroids[i], rover);
+      if (coll.collided){
+        return AsteroidCollision.ROVER;
+      }
+    }
+
 
     if (this.asteroids[i].pos.y > 25) return AsteroidCollision.NOTHING;
     const coll = Collision.checkPerlinCollision(this.asteroids[i], perlin, perlinFloor);

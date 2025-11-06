@@ -245,7 +245,7 @@ export class Game {
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
     this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist/1.6, dt);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
-    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.time, dt);
+    this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.rover, this.time, dt);
     this.skybox.update(gl, this.pCamera);
     this.rover.update(dt*0.01, this.perlinFloor, this.perlin3d);
 
@@ -255,6 +255,7 @@ export class Game {
 
     this.light.updateWorldData();
     this.player.updateWorldData();
+    this.rover.updateWorldData();
     this.mouseMoveVector = Vec2.make(0,0);
 
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
@@ -271,7 +272,7 @@ export class Game {
     shader.bind(gl);
     gl.uniformMatrix4fv(shader.getUniform(gl,"matViewProj"), false, matViewProj.values);
     gl.uniform3f(shader.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
-    gl.uniform3f(shader.getUniform(gl, "lightDir"), 1.0, 1.0, 0.0);
+    gl.uniform3f(shader.getUniform(gl, "lightDir"), 0.7, 1.0, 0.0);
     gl.uniform3f(shader.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     shader.unbind(gl);
   }
