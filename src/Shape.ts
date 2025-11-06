@@ -5,6 +5,7 @@ import { Vec4 } from "./glMath/vec4";
 import { ShaderProgram } from "./helpers/shaderProgram";
 
 export class Shape {
+  public id : number = 0; // I mean, if you need it.
   public model : Mat4x4 = Mat4x4.identity();
   public vel : Vec3 = Vec3.make(0,0,0);
   public tForce : Vec3 = Vec3.make(0,0,0);

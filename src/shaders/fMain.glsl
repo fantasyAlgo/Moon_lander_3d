@@ -31,7 +31,7 @@ void main(){
   float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16.0f);
   float specular = specAmount*specularLight;
 
-  vec3 light = lightColor*(0.3f*diffuse + ambient + specular  + noise_height*0.05f) ;
+  vec3 light = lightColor*(0.3f*diffuse + ambient + specular  + noise_height*0.1f) ;
   outputColor = vec4(vOutColor, 1.0f) * vec4(light, 1.0);
   if (allowTransparency == 1) outputColor.a = 0.1;
   //outputColor = vec4(vOutNormal, 1.0)*vec4(lightColor, 1.0) +  0.01f*diffuse + 0.0001f*vOutColor.x;

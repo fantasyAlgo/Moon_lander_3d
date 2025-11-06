@@ -23,6 +23,9 @@ export class BulletHandler {
     public readonly vertices : Float32Array = new Float32Array([]),
 
   ){}
+  reset(){
+    this.bullets = [];
+  }
 
   destroy(i : number, particleSystem : ParticleSystem, time : number){
     for (let j = 0; j < 20; j++) 

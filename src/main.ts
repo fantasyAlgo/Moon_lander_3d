@@ -55,8 +55,11 @@ function initGame(shaders : Object, models : Object, textures : Object){
   }
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+   
+  if (game == undefined)
+    game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
+  else game.reset(gl);
 
-  game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
   let lastTime = performance.now();
   let dt : number;
 

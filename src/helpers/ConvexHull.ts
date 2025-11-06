@@ -56,7 +56,7 @@ export function convexHull(vertices : Vec3[]){
   }
   let indices : number[] = [];
   let mapV = new Map();
-  const WHITE : Vec3 = Vec3.make(0.8, 0.8, 0.8);
+  const WHITE : Vec3 = Vec3.make(0.3, 0.3, 0.3);
   const vNull: Vec3 = Vec3.make(-1000, 100000, -1000);
   for (let f of faces){
     if (!mapV.has(f.i)){

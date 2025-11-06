@@ -12,9 +12,10 @@ export class Player extends Shape {
   cDir : Vec3 = Vec3.make(0,0,0);
   dead : boolean = false;
   deathTime : number = 0.0;
+
   fuel : number = 100000;
   isAiming : boolean = false;
-
+  stabilizer : boolean = true;
 
 
   constructor(
@@ -28,6 +29,16 @@ export class Player extends Shape {
   ){
       super(pos, scale, program, vao, numIndices, vertices);
     };
+  reset(pos : Vec3){
+    this.pos = pos;
+    this.deathTime = 0.0;
+    this.dead = false;
+    this.fuel = 1000000.0;
+    this.isAiming = false;
+    this.rotationAxis = Vec3.make(0,1,0);
+    this.setRotation([Quat.makeFromAxis(0.0, UP_VEC), Quat.makeFromAxis(Math.PI, this.rotationAxis)]);
+    this.vel = Vec3.make(0,0,0);
+  }
 
   update(moveVec : Vec3, camera : Camera, shiftPressed : boolean, dt : number){
     if (this.dead){
@@ -55,7 +66,11 @@ export class Player extends Shape {
     this.vel.x *= 0.99;
     this.vel.z *= 0.99;
     //const subY = Vec3.sub(Vec3.make(0.0, 1.0, 0.0), this.rotationAxis);
-    //if (moveVec.x == 0 && moveVec.z == 0) this.rotationAxis = Vec3.add(this.rotationAxis, Vec3.multScalar(subY, 0.1*dt));
+    if (this.stabilizer && moveVec.x == 0 && moveVec.z == 0) {
+      this.rotationAxis.x *= 0.99;
+      this.rotationAxis.y += 0.01*dt;
+      this.rotationAxis.z *= 0.99;
+    }
 
     this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2.0*dt) );
   }
@@ -67,6 +82,7 @@ export class Player extends Shape {
     }
   }
   draw(gl: WebGL2RenderingContext): void {
+    if (this.dead) return;
     gl.enable(gl.BLEND);
     super.draw(gl);
     gl.disable(gl.BLEND);

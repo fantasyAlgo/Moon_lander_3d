@@ -42,7 +42,7 @@ export class PerlinFloor {
   testData : number[] = [];
 
   constructor(gl : WebGL2RenderingContext, perlin3d : Perlin3d, shader : ShaderProgram, initial_pos : Vec3){ 
-    const nChunks = 5;
+    const nChunks = 7;
     this.nChunks = nChunks;
     this.testData = Array.from({ length: nChunks }, (_, i) => i + 1);
     this.WIDTH = 50;
@@ -86,11 +86,42 @@ export class PerlinFloor {
       this.shapes.push(
         new Shape(Vec3.make(pos.x*this.WIDTH*2.0, 0 , pos.y*this.HEIGHT*2.0), Vec3.make(this.WIDTH, 1, this.HEIGHT), shader, vao, floorIndicesData.length)
       );
+      this.shapes[this.shapes.length-1].id = this.shapes.length-1;
    }
 
    this.pendingUpdateSwaps = [];
    //console.log(this.testData.slice(0, 3), "\n", this.testData.slice(3, 6), "\n", this.testData.slice(6, 9));
    shader.unbind(gl);
+  }
+  reset(gl : WebGL2RenderingContext, initial_pos : Vec3,  perlin3d : Perlin3d){
+    const xIndxChunk = Math.floor((Math.abs(initial_pos.x)+this.WIDTH)/(this.WIDTH*2.0));
+    const yIndxChunk = Math.floor((Math.abs(initial_pos.z)+this.HEIGHT)/(this.HEIGHT*2.0));
+
+    const xChunk = xIndxChunk*this.WIDTH*2.0 * Math.sign(initial_pos.x);
+    const yChunk = yIndxChunk*this.HEIGHT*2.0 * Math.sign(initial_pos.z);
+    this.cChunk = Vec2.make(xChunk,yChunk);
+    for (let i = 0; i < this.nChunks*this.nChunks; i++){
+      const id = this.shapes[i].id;
+      if (id != i)
+        this.swap(i, id);
+    }
+
+
+    for (let i = 0; i < this.nChunks*this.nChunks; i++){
+      const offset = Math.floor(this.nChunks/2.0);
+      const pos : Vec2 = Vec2.make(Math.floor(i/this.nChunks) - offset, i%this.nChunks - offset);
+      const iX = Math.floor((this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0));
+      const iY = Math.floor((this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0));
+      //const pos : Vec2 = Vec2.make(i%nChunks - 1, Math.floor(i/nChunks)-1);
+      const values = getFloorVertices(perlin3d, Vec2.add(pos, Vec2.make(iX, iY)));
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO[i]);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
+      gl.bindVertexArray(null);
+   }
+
+
+
   }
 
   getValue(p : Perlin3d, x : number, y : number) : number{
@@ -164,15 +195,11 @@ export class PerlinFloor {
     gl.uniform2f(this.shader.getUniform(gl, "chunkPos"), this.cChunk.x, this.cChunk.y);
   }
 
-
   update(gl : WebGL2RenderingContext, perlin3d : Perlin3d, pos : Vec3){
-    //console.log(pos)
     if (this.queueChanges.length > 0){
-      //console.log("hello: ", this.queueChanges.length)
       const el : QueueChanges | undefined = this.queueChanges.shift();
       if (el == undefined) return;
 
-      //gl.finish();
 
       const iX = Math.floor((this.cChunk.x - this.WIDTH)/(this.WIDTH*2.0));
       const iY = Math.floor((this.cChunk.y - this.HEIGHT)/(this.HEIGHT*2.0));

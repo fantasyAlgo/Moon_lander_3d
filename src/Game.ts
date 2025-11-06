@@ -24,11 +24,8 @@ import { BulletHandler } from "./BulletHandler.ts";
 import { Crosshair } from "./crossair.ts";
 
 
-
-
-
-
 export class Game {
+  loaded : boolean = false;
   time : number = 0;
   isRunning : boolean = true;
   cubeVertices: WebGLBuffer;
@@ -79,6 +76,7 @@ export class Game {
 
 
   constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object, textures : Object){
+    this.loaded = true;
     this.width = width;
     this.height = height;
     this.total_time = 0.0
@@ -109,8 +107,7 @@ export class Game {
     this.shaders["cubemap"] = new ShaderProgram(gl, shaders["vCubemap"], shaders["fCubemap"]);
     this.shaders["crossair"] = new ShaderProgram(gl, shaders["vCrossair"], shaders["fCrossair"]);
 
-
-    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
+    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(60, 0, 60));
     this.shaders["main"].bind(gl);
 
     console.log("error: ", gl.getError());
@@ -150,9 +147,26 @@ export class Game {
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices , 100000);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
-    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.rover = new Rover(Vec3.make(60, 20, 70), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
     this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, CUBE_VERTICES);
     this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
+  }
+
+  reset(gl : WebGL2RenderingContext){
+    this.pSystem.reset(gl);
+    this.player.reset(Vec3.make(60, 0, 60));
+    this.rover.reset(Vec3.make(60, 20, 70));
+    this.aSystem.reset();
+
+    this.perlinFloor.reset(gl, this.player.pos, this.perlin3d);
+
+    this.total_time = 0.0
+    this.moveVector = Vec3.make(0, 0, 0);
+    this.mouseMoveVector = Vec2.make(0, 0);
+    this.lastMousePos = Vec2.make(0, 0);
+    //this.chunk_pos = Vec2.make(0.0, 0.0);
+    this.boostTimer = 0.0;
+    this.isRunning = true;
   }
 
   handleKeyDown(e : KeyboardEvent){
@@ -174,6 +188,10 @@ export class Game {
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
     if (ch == "s")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
+
+    if (ch == "e")
+      this.player.stabilizer = !this.player.stabilizer;
+
 
     if (e.code == "Space") 
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
@@ -198,6 +216,8 @@ export class Game {
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 0, 1));
     if (e.code == "Space") 
       this.moveVector = Vec3.sub(this.moveVector, Vec3.make(0, 1, 0));
+
+
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
 
   }
@@ -220,7 +240,8 @@ export class Game {
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
-    this.isRunning = !(this.player.deathTime > 600.0);
+    console.log("rover: ", this.rover.deathTime);
+    this.isRunning = !(this.player.deathTime > 600.0 || this.rover.deathTime > 14.0);
     this.time += dt;
     const maxBoostTimer = 400;
     if (this.boostTimer >= 0)
@@ -234,9 +255,9 @@ export class Game {
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), pSprinting ? 2.0 : 1.0, this.time, 0.1, 0.9);
 
     if (Math.random() > (1.0-SPAWN_ASTEROID_PROB)){
-      if (Math.random() > 0.9)
+      if (Math.random() > 0.95)
         this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z), this.rover.pos, this.rover.vel);
-      if (Math.random() > 0.9)
+      if (Math.random() > 0.95)
         this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z), this.player.pos, this.player.vel);
       else this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z));
     }
@@ -316,8 +337,7 @@ export class Game {
     this.bSystem.draw(gl);
     this.rover.draw(gl);
     //this.rover.drawSmallOnes(gl);
-    if (!this.player.dead)
-      this.player.draw(gl);
+    this.player.draw(gl);
 
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);

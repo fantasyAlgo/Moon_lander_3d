@@ -1480,6 +1480,8 @@ var Shape = class {
     this.vertices = vertices;
     this.rot = Quat.makeFromAxis(0, Vec3.make(0, 1, 0));
   }
+  id = 0;
+  // I mean, if you need it.
   model = Mat4x4.identity();
   vel = Vec3.make(0, 0, 0);
   tForce = Vec3.make(0, 0, 0);
@@ -1649,7 +1651,7 @@ var PerlinFloor = class {
   pendingUpdateSwaps = [];
   testData = [];
   constructor(gl, perlin3d, shader, initial_pos) {
-    const nChunks = 5;
+    const nChunks = 7;
     this.nChunks = nChunks;
     this.testData = Array.from({ length: nChunks }, (_, i) => i + 1);
     this.WIDTH = 50;
@@ -1684,9 +1686,32 @@ var PerlinFloor = class {
       this.shapes.push(
         new Shape(Vec3.make(pos.x * this.WIDTH * 2, 0, pos.y * this.HEIGHT * 2), Vec3.make(this.WIDTH, 1, this.HEIGHT), shader, vao, floorIndicesData.length)
       );
+      this.shapes[this.shapes.length - 1].id = this.shapes.length - 1;
     }
     this.pendingUpdateSwaps = [];
     shader.unbind(gl);
+  }
+  reset(gl, initial_pos, perlin3d) {
+    const xIndxChunk = Math.floor((Math.abs(initial_pos.x) + this.WIDTH) / (this.WIDTH * 2));
+    const yIndxChunk = Math.floor((Math.abs(initial_pos.z) + this.HEIGHT) / (this.HEIGHT * 2));
+    const xChunk = xIndxChunk * this.WIDTH * 2 * Math.sign(initial_pos.x);
+    const yChunk = yIndxChunk * this.HEIGHT * 2 * Math.sign(initial_pos.z);
+    this.cChunk = Vec2.make(xChunk, yChunk);
+    for (let i = 0; i < this.nChunks * this.nChunks; i++) {
+      const id = this.shapes[i].id;
+      if (id != i)
+        this.swap(i, id);
+    }
+    for (let i = 0; i < this.nChunks * this.nChunks; i++) {
+      const offset = Math.floor(this.nChunks / 2);
+      const pos = Vec2.make(Math.floor(i / this.nChunks) - offset, i % this.nChunks - offset);
+      const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
+      const iY = Math.floor((this.cChunk.y - this.HEIGHT) / (this.HEIGHT * 2));
+      const values = getFloorVertices(perlin3d, Vec2.add(pos, Vec2.make(iX, iY)));
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.verticesVBO[i]);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, values);
+      gl.bindVertexArray(null);
+    }
   }
   getValue(p, x, y) {
     const iX = Math.floor((this.cChunk.x - this.WIDTH) / (this.WIDTH * 2));
@@ -1817,6 +1842,17 @@ var Player = class extends Shape {
   deathTime = 0;
   fuel = 1e5;
   isAiming = false;
+  stabilizer = true;
+  reset(pos) {
+    this.pos = pos;
+    this.deathTime = 0;
+    this.dead = false;
+    this.fuel = 1e6;
+    this.isAiming = false;
+    this.rotationAxis = Vec3.make(0, 1, 0);
+    this.setRotation([Quat.makeFromAxis(0, UP_VEC2), Quat.makeFromAxis(Math.PI, this.rotationAxis)]);
+    this.vel = Vec3.make(0, 0, 0);
+  }
   update(moveVec, camera, shiftPressed, dt) {
     if (this.dead) {
       this.deathTime += dt;
@@ -1836,6 +1872,11 @@ var Player = class extends Shape {
       this.vel = Vec3.add(this.vel, Vec3.multScalar(perp, 5e-4 * dt * speed));
     this.vel.x *= 0.99;
     this.vel.z *= 0.99;
+    if (this.stabilizer && moveVec.x == 0 && moveVec.z == 0) {
+      this.rotationAxis.x *= 0.99;
+      this.rotationAxis.y += 0.01 * dt;
+      this.rotationAxis.z *= 0.99;
+    }
     this.pos = Vec3.add(this.pos, Vec3.multScalar(this.vel, 2 * dt));
   }
   deadAnimation(time, particleSystem) {
@@ -1845,6 +1886,7 @@ var Player = class extends Shape {
     }
   }
   draw(gl) {
+    if (this.dead) return;
     gl.enable(gl.BLEND);
     super.draw(gl);
     gl.disable(gl.BLEND);
@@ -2075,6 +2117,10 @@ var ParticleSystem = class {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     console.log("error in ParticleSystem: ", gl.getError());
+  }
+  reset(gl) {
+    const empty = new Float32Array(8 * this.max_particles);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, empty, 0, 0);
   }
   setShapeBuffer(gl, data, indices) {
     gl.bindVertexArray(this.vao);
@@ -2309,7 +2355,7 @@ function convexHull(vertices) {
   }
   let indices = [];
   let mapV = /* @__PURE__ */ new Map();
-  const WHITE = Vec3.make(0.8, 0.8, 0.8);
+  const WHITE = Vec3.make(0.3, 0.3, 0.3);
   const vNull = Vec3.make(-1e3, 1e5, -1e3);
   for (let f of faces) {
     if (!mapV.has(f.i)) {
@@ -2401,9 +2447,12 @@ var AsteroidHandler = class {
       this.verticesVao.push(s[2]);
     }
   }
-  checkIfNearPlayer(idx, player) {
+  reset() {
+    this.asteroids = [];
+  }
+  checkIfNearPlayer(idx, shape, shapeDist = 3) {
     const pos = this.asteroids[idx].pos;
-    return Vec3.distance(pos, player.pos) < this.asteroids[idx].scale.x + 4;
+    return Vec3.distance(pos, shape.pos) < this.asteroids[idx].scale.x + shapeDist;
   }
   killAsteroid(i, particleSystem, time) {
     for (let j = 0; j < 100; j++) {
@@ -2421,7 +2470,8 @@ var AsteroidHandler = class {
         this.killAsteroid(i, particleSystem, time);
         i--;
       }
-      if (coll == 1 /* PLAYER */ || coll == 4 /* ROVER */) player.deadAnimation(time, particleSystem);
+      if (coll == 1 /* PLAYER */) player.deadAnimation(time, particleSystem);
+      if (coll == 4 /* ROVER */) rover.deadAnimation(time, particleSystem);
     }
   }
   checkCollision(i, perlin, perlinFloor, player, rover, bulletHandler) {
@@ -2437,10 +2487,9 @@ var AsteroidHandler = class {
       if (coll2.collided)
         return 1 /* PLAYER */;
     }
-    if (this.checkIfNearPlayer(i, rover)) {
+    if (this.checkIfNearPlayer(i, rover, 5)) {
       const coll2 = Collision.checkShapeCollision(this.asteroids[i], rover);
       if (coll2.collided) {
-        console.log("baka tamo emo cokkodrilli e lorangotango");
         return 4 /* ROVER */;
       }
     }
@@ -2623,6 +2672,8 @@ var Rover = class extends Shape {
     this.constraints.push(new Constraint(this.pointBottomRight, this.pointTopLeft, this.diagonal));
     this.target = Vec2.multScalar(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random()), 500);
   }
+  dead = false;
+  deathTime = 0;
   pointTopLeft = new PointEntity();
   pointTopRight = new PointEntity();
   pointBottomLeft = new PointEntity();
@@ -2632,18 +2683,14 @@ var Rover = class extends Shape {
   diagonal;
   target = Vec2.make(0, 0);
   spin = 0;
-  applySpring(from, to, force_distance, SPRING_FORCE2, DAMPING_FORCE2, dt) {
-    let pos = Vec3.add(to, force_distance);
-    const dir = Vec3.sub(pos, from.pos);
-    const spring_force_r = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE2 * 2), Vec3.multScalar(from.vel, DAMPING_FORCE2));
-    spring_force_r.multScalar(dt);
-    from.vel = Vec3.add(from.vel, spring_force_r);
-  }
-  applySpringDist(from, to, force_distance, SPRING_FORCE2, DAMPING_FORCE2, dt) {
-    const dir = Vec3.multScalar(Vec3.normalize(Vec3.sub(to, from.pos)), Vec3.distance(to, from.pos) - force_distance);
-    const spring_force_r = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE2 * 2), Vec3.multScalar(from.vel, DAMPING_FORCE2));
-    spring_force_r.multScalar(dt);
-    from.vel = Vec3.add(from.vel, spring_force_r);
+  reset(pos) {
+    this.pos = pos;
+    this.pointTopLeft.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(0.5, -0.5, 0.5)));
+    this.pointTopRight.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(-0.5, -0.5, 0.5)));
+    this.pointBottomLeft.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(0.5, -0.5, -0.5)));
+    this.pointBottomRight.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(-0.5, -0.5, -0.5)));
+    this.dead = false;
+    this.deathTime = 0;
   }
   applySpringOnAxis(from, to, force_distance, SPRING_FORCE2, DAMPING_FORCE2, dt, axis, notPushBottom = false) {
     if (axis == 0) {
@@ -2672,6 +2719,10 @@ var Rover = class extends Shape {
     }
   }
   update(dt, perlinNoise, perlin) {
+    if (this.dead) {
+      this.deathTime += dt;
+      return;
+    }
     let dir = Vec2.sub(this.target, Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z));
     const dist = dir.distance;
     dir = Vec2.multScalar(Vec2.normalize(dir), dt);
@@ -2706,7 +2757,15 @@ var Rover = class extends Shape {
   drawSmallOnes(gl) {
     this.shapes.forEach((e) => e.draw(gl));
   }
+  deadAnimation(time, particleSystem) {
+    this.dead = true;
+    this.deathTime = 0;
+    for (let j = 0; j < 100; j++) {
+      particleSystem.add(this.pos, Vec3.make(0, 0, 0), 1 + Math.random() * 3, time, 1, 2);
+    }
+  }
   draw(gl) {
+    if (this.dead) return;
     const matWorldUniform = this.program.getUniform(gl, "matWorld");
     let matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
@@ -2731,6 +2790,9 @@ var BulletHandler = class _BulletHandler {
   static MAX_TIME = 200;
   static BULLET_SIZE = Vec3.make(0.3, 0.3, 1);
   bullets = [];
+  reset() {
+    this.bullets = [];
+  }
   destroy(i, particleSystem, time) {
     for (let j = 0; j < 20; j++)
       particleSystem.add(this.bullets[i].pos, Vec3.make(0, 0, 0), 1, time, 1, 2);
@@ -2802,6 +2864,7 @@ var Crosshair = class {
 
 // src/Game.ts
 var Game = class {
+  loaded = false;
   time = 0;
   isRunning = true;
   cubeVertices;
@@ -2835,6 +2898,7 @@ var Game = class {
   skybox;
   crossair;
   constructor(gl, width, height, shaders, models, textures) {
+    this.loaded = true;
     this.width = width;
     this.height = height;
     this.total_time = 0;
@@ -2859,7 +2923,7 @@ var Game = class {
     this.shaders["particle"] = new ShaderProgram(gl, shaders["vParticle"], shaders["fParticle"]);
     this.shaders["cubemap"] = new ShaderProgram(gl, shaders["vCubemap"], shaders["fCubemap"]);
     this.shaders["crossair"] = new ShaderProgram(gl, shaders["vCrossair"], shaders["fCrossair"]);
-    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(10, 0, 0));
+    this.perlinFloor = new PerlinFloor(gl, this.perlin3d, this.shaders["floor"], Vec3.make(60, 0, 60));
     this.shaders["main"].bind(gl);
     console.log("error: ", gl.getError());
     const vPosLoc = this.shaders["main"].getAttrib(gl, "vPos");
@@ -2900,9 +2964,22 @@ var Game = class {
     this.pSystem = new ParticleSystem(gl, this.shaders["particle"], cubeVertices, cubeIndices, 1e5);
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
-    this.rover = new Rover(Vec3.make(60, 20, 60), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
+    this.rover = new Rover(Vec3.make(60, 20, 70), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
     this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, CUBE_VERTICES);
     this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
+  }
+  reset(gl) {
+    this.pSystem.reset(gl);
+    this.player.reset(Vec3.make(60, 0, 60));
+    this.rover.reset(Vec3.make(60, 20, 70));
+    this.aSystem.reset();
+    this.perlinFloor.reset(gl, this.player.pos, this.perlin3d);
+    this.total_time = 0;
+    this.moveVector = Vec3.make(0, 0, 0);
+    this.mouseMoveVector = Vec2.make(0, 0);
+    this.lastMousePos = Vec2.make(0, 0);
+    this.boostTimer = 0;
+    this.isRunning = true;
   }
   handleKeyDown(e) {
     const ch = e.key.charAt(0).toLowerCase();
@@ -2921,6 +2998,8 @@ var Game = class {
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(1, 0, 0));
     if (ch == "s")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 0, 1));
+    if (ch == "e")
+      this.player.stabilizer = !this.player.stabilizer;
     if (e.code == "Space")
       this.moveVector = Vec3.add(this.moveVector, Vec3.make(0, 1, 0));
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
@@ -2957,7 +3036,8 @@ var Game = class {
     if (e.button == 2) this.player.isAiming = false;
   }
   update(gl, dt) {
-    this.isRunning = !(this.player.deathTime > 600);
+    console.log("rover: ", this.rover.deathTime);
+    this.isRunning = !(this.player.deathTime > 600 || this.rover.deathTime > 40);
     this.time += dt;
     const maxBoostTimer = 400;
     if (this.boostTimer >= 0)
@@ -2968,9 +3048,9 @@ var Game = class {
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), pSprinting ? 2 : 1, this.time, 0.1, 0.9);
     if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
-      if (Math.random() > 0.9)
+      if (Math.random() > 0.95)
         this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z), this.rover.pos, this.rover.vel);
-      if (Math.random() > 0.9)
+      if (Math.random() > 0.95)
         this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z), this.player.pos, this.player.vel);
       else this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z));
     }
@@ -3025,8 +3105,7 @@ var Game = class {
     this.pSystem.draw(gl);
     this.bSystem.draw(gl);
     this.rover.draw(gl);
-    if (!this.player.dead)
-      this.player.draw(gl);
+    this.player.draw(gl);
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);
     gl.disable(gl.DEPTH_TEST);
@@ -3087,7 +3166,9 @@ function initGame(shaders, models, textures) {
   }
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
+  if (game == void 0)
+    game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
+  else game.reset(gl);
   let lastTime = performance.now();
   let dt;
   function step() {

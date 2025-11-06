@@ -7,6 +7,7 @@ import { ShaderProgram } from "./helpers/shaderProgram";
 import { PerlinFloor } from "./PerlinFloor";
 import { Shape } from "./Shape";
 import { Mat4x4 } from "./glMath/mat4x4";
+import { ParticleSystem } from "./ParticleSystem";
 
 class PointEntity {
   constructor(
@@ -43,6 +44,9 @@ const DAMPING_FORCE = 0.05;
 const UP_VEC : Vec3 = Vec3.make(0, 1, 0);
 
 export class Rover extends Shape{
+  dead : boolean = false;
+  deathTime : number = 0.0;
+
   pointTopLeft :     PointEntity = new PointEntity();
   pointTopRight :    PointEntity = new PointEntity();
   pointBottomLeft :  PointEntity = new PointEntity();
@@ -90,24 +94,16 @@ export class Rover extends Shape{
 
       this.target = Vec2.multScalar(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random()), 500.0);
   }
-
-  applySpring(from : PointEntity, to : Vec3, force_distance : Vec3, SPRING_FORCE : number, DAMPING_FORCE : number, dt : number){
-    let pos : Vec3 = Vec3.add(to, force_distance);
-
-    const dir : Vec3 =  Vec3.sub(pos, from.pos);
-    const spring_force_r : Vec3 = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE*2.0), Vec3.multScalar(from.vel, DAMPING_FORCE));
-    spring_force_r.multScalar(dt);
-    //console.log("diff: ", from.pos, pos, " | ", spring_force_r);
-    from.vel = Vec3.add(from.vel, spring_force_r);
+  reset(pos : Vec3){
+    this.pos = pos;
+    this.pointTopLeft.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(0.5, -0.5, 0.5)));
+    this.pointTopRight.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(-0.5, -0.5, 0.5)));
+    this.pointBottomLeft.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(0.5, -0.5, -0.5)));
+    this.pointBottomRight.pos = Vec3.add(pos, Vec3.mult(this.scale, Vec3.make(-0.5, -0.5, -0.5)));
+    this.dead = false;
+    this.deathTime = 0.0;
   }
 
-  applySpringDist(from : PointEntity, to : Vec3, force_distance : number, SPRING_FORCE : number, DAMPING_FORCE : number, dt : number){
-    const dir : Vec3 =  Vec3.multScalar(Vec3.normalize(Vec3.sub(to, from.pos)), Vec3.distance(to, from.pos) - force_distance);
-    const spring_force_r : Vec3 = Vec3.sub(Vec3.multScalar(dir, SPRING_FORCE*2.0), Vec3.multScalar(from.vel, DAMPING_FORCE));
-    spring_force_r.multScalar(dt);
-    //console.log("diff: ", from.pos, to, " | ", spring_force_r);
-    from.vel = Vec3.add(from.vel, spring_force_r);
-  }
   applySpringOnAxis(from : PointEntity, to : Vec3, force_distance : number, SPRING_FORCE : number, DAMPING_FORCE : number, dt : number, axis : number, notPushBottom : boolean = false){
     if (axis == 0){
       const dir : number = Math.sign(to.x-from.pos.x)*(Math.abs(to.x-from.pos.x) - force_distance)      
@@ -140,6 +136,10 @@ export class Rover extends Shape{
   }
 
   update(dt : number, perlinNoise : PerlinFloor, perlin : Perlin3d){
+    if (this.dead){
+      this.deathTime += dt;
+      return;
+    }
     //this.pointTopRight.vel.z += dt*0.005;
     let dir = Vec2.sub(this.target, Vec2.make(this.pointTopLeft.pos.x, this.pointTopLeft.pos.z));
     const dist = dir.distance;
@@ -185,8 +185,17 @@ export class Rover extends Shape{
   drawSmallOnes(gl : WebGL2RenderingContext){
     this.shapes.forEach((e : Shape) => e.draw(gl));
   }
+  deadAnimation(time : number, particleSystem : ParticleSystem){
+    this.dead = true;
+    this.deathTime = 0.0;
+    for (let j = 0; j < 100; j++) {
+      particleSystem.add(this.pos, Vec3.make(0,0,0), 1+Math.random()*3.0, time, 1, 2);
+    }
+  }
+
 
   draw(gl : WebGL2RenderingContext){
+    if (this.dead) return;
     const matWorldUniform = this.program.getUniform(gl, "matWorld")
     //console.log(this);
     let matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);

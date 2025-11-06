@@ -40,6 +40,10 @@ export class ParticleSystem {
 
     console.log("error in ParticleSystem: ", gl.getError())
   }
+  reset(gl : WebGL2RenderingContext){
+    const empty = new Float32Array(8*this.max_particles);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0.0, empty, 0, 0);
+  }
 
   setShapeBuffer(gl : WebGL2RenderingContext, data : WebGLBuffer, indices : WebGLBuffer){
     gl.bindVertexArray(this.vao);
@@ -122,6 +126,7 @@ export class ParticleSystem {
     const sizeParticles = this.toSpawnParticles.length;
     if (this.next_particle + sizeParticles >= this.max_particles){
       const maxArraySize = this.max_particles - sizeParticles;
+
       gl.bufferSubData(gl.ARRAY_BUFFER, this.next_particle*Float32Array.BYTES_PER_ELEMENT, new Float32Array(this.toSpawnParticles).subarray(0, maxArraySize), 0, 0);
       this.next_particle = 0;
       this.toSpawnParticles = this.toSpawnParticles.slice(maxArraySize+1, sizeParticles+1);

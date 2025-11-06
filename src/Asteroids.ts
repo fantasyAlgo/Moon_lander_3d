@@ -88,16 +88,23 @@ export class AsteroidHandler {
 
     }
   }
+
+  reset(){
+    this.asteroids = [];
+  }
+
   checkIfNearPlayer(idx : number, shape : Shape, shapeDist : number = 3){
     const pos = this.asteroids[idx].pos;
     return  Vec3.distance(pos, shape.pos) < (this.asteroids[idx].scale.x+shapeDist);
   }
+
   killAsteroid(i : number, particleSystem : ParticleSystem, time : number){
     for (let j = 0; j < 100; j++) {
         particleSystem.add(this.asteroids[i].pos, Vec3.make(0,0,0), 2.0*this.asteroids[i].scale.x, time, 1, 2);
     }
     this.asteroids.splice(i, 1);
   }
+
   update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, bulletHandler : BulletHandler, rover : Rover, time : number, dt : number){
     for (let i = 0; i < this.asteroids.length; i++) {
       this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25*dt)); 
@@ -108,7 +115,8 @@ export class AsteroidHandler {
         this.killAsteroid(i, particleSystem, time);
         i--;
       }
-      if (coll == AsteroidCollision.PLAYER || coll == AsteroidCollision.ROVER) player.deadAnimation(time, particleSystem);
+      if (coll == AsteroidCollision.PLAYER) player.deadAnimation(time, particleSystem);
+      if (coll == AsteroidCollision.ROVER) rover.deadAnimation(time, particleSystem);
 
     }
   }
