@@ -111,15 +111,23 @@ export function getFloorVertices(perlin3d : Perlin3d, chunk : Vec2) : Float32Arr
       lst.push(vertex);
     }
   }
+  const getPos = (i : number, j : number) : Vec3 => {
+    const indx = i*H + j;
+    if (indx < 0 || indx >= W*H){
+      const height = 10.0*perlin3d.get((i + chunk.y*H)/50.0, (j + chunk.x*W)/50.0);
+      const pos : Vec3 = Vec3.make(2.0*j/H - 1.0, height, 2.0*i/W - 1.0);
+      return pos;
+    } return lst[indx].pos;
+  }
 
-  for (let i = 1; i < H-1; i++) {
-    for (let j = 1; j < W-1; j++) {
-      const up            =      lst[(i-1)*H+j].pos.y;
-      const down          =    lst[(i-1)*H+j].pos.y;
-      const left          =    lst[i*H+j-1].pos.y;
-      const right         =   lst[i*H+j+1].pos.y;
-      lst[i*H+j].normal.x = up - down;
-      lst[i*H+j].normal.z = left - right;
+  for (let i = 0; i <= H; i++) {
+    for (let j = 0; j <= W; j++) {
+      const nUp =  getPos(i-1, j); //lst[(i-1)*H+j].pos;
+      const n = lst[i*H+j].pos;
+      const nLeft = getPos(i, j-1);
+      let normal = Vec3.cross(Vec3.sub(nLeft, n), Vec3.sub(nUp, n));
+      if (Vec3.dot(normal, Vec3.make(0, 1, 0)) < 0) normal.multScalar(-1.0);
+      lst[i*H + j].normal = Vec3.normalize(normal);
     }
   }
 

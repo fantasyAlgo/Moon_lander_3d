@@ -212,19 +212,36 @@ export class PerlinFloor {
   draw(gl : WebGL2RenderingContext, cameraPos : Vec3, forward : Vec3){
     const length = this.nChunks*this.nChunks
     const playerIndx = Math.floor(length/2.0);
+    const checkPoint = (p : Vec3) => {
+      const cPos = Vec3.make(this.cChunk.x + p.x, p.y, this.cChunk.y+p.z);
+      const diff = Vec3.normalize(Vec3.sub(cPos, cameraPos));
+      return Vec3.dot(forward, diff) > 0.5;
+    }
+
     for (let i = 0; i < length; i++) {
       const element = this.shapes[i];
       if (i == playerIndx) {
         element.draw(gl);
         continue;
       }
-      const cPos = Vec3.make(this.cChunk.x + element.pos.x, element.pos.y, this.cChunk.y+element.pos.z);
-      const diff = Vec3.normalize(Vec3.make(
-        cPos.x-cameraPos.x, 
-        cPos.y-cameraPos.y, 
-        cPos.z-cameraPos.z));
-      if (Vec3.dot(forward, diff) > 0.0)
+
+      if (checkPoint(Vec3.make(element.pos.x-this.WIDTH, element.pos.y, element.pos.z+this.HEIGHT))){
         element.draw(gl);
+        continue;
+      }
+      if (checkPoint(Vec3.make(element.pos.x+this.WIDTH, element.pos.y, element.pos.z+this.HEIGHT))){
+        element.draw(gl);
+        continue;
+      }
+      if (checkPoint(Vec3.make(element.pos.x-this.WIDTH, element.pos.y, element.pos.z-this.HEIGHT))){
+        element.draw(gl);
+        continue;
+      }
+      if (checkPoint(Vec3.make(element.pos.x+this.WIDTH, element.pos.y, element.pos.z-this.HEIGHT))){
+        element.draw(gl);
+        continue;
+      }
+
      
     }
   }

@@ -178,8 +178,8 @@ export class Rover extends Shape{
     this.shapes[2].pos = this.pointBottomLeft.pos;
     this.shapes[3].pos = this.pointBottomRight.pos;
 
-    this.pos = Vec3.make(0,0,0);
-    this.pos.copy(this.pointBottomLeft.pos);
+    this.pos = Vec3.copy(this.pointBottomLeft.pos);
+    this.vel = Vec3.copy(this.pointTopLeft.vel);
     //Vec3.average([this.pointTopLeft.pos, this.pointBottomLeft.pos, this.pointTopRight.pos, this.pointBottomRight.pos]);
   }
   drawSmallOnes(gl : WebGL2RenderingContext){

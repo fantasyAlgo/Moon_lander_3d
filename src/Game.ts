@@ -234,8 +234,10 @@ export class Game {
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1.0), pSprinting ? 2.0 : 1.0, this.time, 0.1, 0.9);
 
     if (Math.random() > (1.0-SPAWN_ASTEROID_PROB)){
-      if (Math.random() > 0.8)
-        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z), this.rover.pos);
+      if (Math.random() > 0.9)
+        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z), this.rover.pos, this.rover.vel);
+      if (Math.random() > 0.9)
+        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z), this.player.pos, this.player.vel);
       else this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y+200, this.player.pos.z));
     }
 
@@ -248,7 +250,7 @@ export class Game {
     this.rover.update(dt*0.01, this.perlinFloor, this.perlin3d);
 
 
-    updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
+    updateEntitiesPhysics([this.player], dt);
 
 
     this.light.updateWorldData();
@@ -269,7 +271,7 @@ export class Game {
     shader.bind(gl);
     gl.uniformMatrix4fv(shader.getUniform(gl,"matViewProj"), false, matViewProj.values);
     gl.uniform3f(shader.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
-    gl.uniform3f(shader.getUniform(gl, "lightPos"), this.light.pos.x, this.light.pos.y, this.light.pos.z);
+    gl.uniform3f(shader.getUniform(gl, "lightDir"), 1.0, 1.0, 0.0);
     gl.uniform3f(shader.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     shader.unbind(gl);
   }
@@ -321,14 +323,18 @@ export class Game {
 
     gl.disable(gl.DEPTH_TEST);
     this.crossair.draw(gl);
-    
-    gl.finish();
-    this.perlinFloor.updateSwaps(gl);
-
-    const error = gl.getError();
+    let error = gl.getError();
     if (error !== gl.NO_ERROR) {
       console.error("WebGL Error:", error);
       throw new Error("opengl said something went wrong");
+    }
+    gl.finish();
+    this.perlinFloor.updateSwaps(gl);
+
+    error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+      console.error("WebGL Error:", error);
+      throw new Error("opengl said something went wrong in the perlinFloor thingy");
     }
 
   }

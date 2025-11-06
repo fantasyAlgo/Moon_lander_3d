@@ -11,6 +11,7 @@ import { ShaderProgram } from "./helpers/shaderProgram";
 import { ParticleSystem } from "./ParticleSystem";
 import { PerlinFloor } from "./PerlinFloor";
 import { Player } from "./Player";
+import { Rover } from "./Rover";
 import { Shape } from "./Shape";
 
 
@@ -148,7 +149,9 @@ export class AsteroidHandler {
     );
     this.asteroids[this.asteroids.length-1].vel = vel;
   }
-  addAttackRover(pos : Vec3, rover : Vec3){
+
+
+  addAttackRover(pos : Vec3, rover : Vec3, roverVel : Vec3 = Vec3.make(0,0,0)){
     const f = () : number => 0.5 - Math.random();
 
     const offset_pos = Vec3.multScalar(Vec3.make(f(),f(),f()), 100.0);
@@ -157,8 +160,11 @@ export class AsteroidHandler {
 
     const scale = Math.floor(2 + Math.random()*5);
     const indxVao = Math.floor(Math.random()*this.vaos.length);
+
     const fPos : Vec3 = Vec3.add(pos, offset_pos);
-    const vel = Vec3.normalize(Vec3.add(Vec3.sub(rover, fPos), offset_vel));
+
+    const predRover = Vec3.add(rover, Vec3.multScalar(roverVel, 6.0));
+    const vel = Vec3.normalize(Vec3.add(Vec3.sub(predRover, fPos), offset_vel));
 
     if (this.verticesVao[indxVao].length < 2) throw new Error("Vertices length cannot be less than 2");
     this.asteroids.push(

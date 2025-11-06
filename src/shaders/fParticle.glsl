@@ -8,7 +8,7 @@ in vec2 vOutUV;
 in vec2 vRelative;
 
 uniform vec3 lightColor;
-uniform vec3 lightPos;
+uniform vec3 lightDir;
 uniform vec3 cameraPos;
 uniform sampler2D u_noiseTex;
 
@@ -22,12 +22,12 @@ void main(){
   float noise_height = texture(u_noiseTex, vOutUV*2.0f).r;
 
   vec3 normal = normalize(vOutNormal);
-  vec3 lightDir = normalize(lightPos - vOutPos);
-  float diffuse = max(dot(lightDir, normal), 0.0);
+  vec3 lightDirN = normalize(lightDir);
+  float diffuse = max(dot(lightDirN, normal), 0.0);
 
   float specularLight = 0.2f;
   vec3 viewDirection = normalize(cameraPos - vOutPos);
-  vec3 reflectionDirection = reflect(-lightDir, normal );
+  vec3 reflectionDirection = reflect(-lightDirN, normal );
   float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16.0f);
   float specular = specAmount*specularLight;
 

@@ -838,14 +838,23 @@ function getFloorVertices(perlin3d, chunk) {
       lst.push(vertex);
     }
   }
-  for (let i = 1; i < H - 1; i++) {
-    for (let j = 1; j < W - 1; j++) {
-      const up = lst[(i - 1) * H + j].pos.y;
-      const down = lst[(i - 1) * H + j].pos.y;
-      const left = lst[i * H + j - 1].pos.y;
-      const right = lst[i * H + j + 1].pos.y;
-      lst[i * H + j].normal.x = up - down;
-      lst[i * H + j].normal.z = left - right;
+  const getPos = (i, j) => {
+    const indx = i * H + j;
+    if (indx < 0 || indx >= W * H) {
+      const height = 10 * perlin3d.get((i + chunk.y * H) / 50, (j + chunk.x * W) / 50);
+      const pos = Vec3.make(2 * j / H - 1, height, 2 * i / W - 1);
+      return pos;
+    }
+    return lst[indx].pos;
+  };
+  for (let i = 0; i <= H; i++) {
+    for (let j = 0; j <= W; j++) {
+      const nUp = getPos(i - 1, j);
+      const n = lst[i * H + j].pos;
+      const nLeft = getPos(i, j - 1);
+      let normal = Vec3.cross(Vec3.sub(nLeft, n), Vec3.sub(nUp, n));
+      if (Vec3.dot(normal, Vec3.make(0, 1, 0)) < 0) normal.multScalar(-1);
+      lst[i * H + j].normal = Vec3.normalize(normal);
     }
   }
   return webglVerticesFromCoupledFloorVertices(lst);
@@ -1765,20 +1774,33 @@ var PerlinFloor = class {
   draw(gl, cameraPos, forward) {
     const length = this.nChunks * this.nChunks;
     const playerIndx = Math.floor(length / 2);
+    const checkPoint = (p) => {
+      const cPos = Vec3.make(this.cChunk.x + p.x, p.y, this.cChunk.y + p.z);
+      const diff2 = Vec3.normalize(Vec3.sub(cPos, cameraPos));
+      return Vec3.dot(forward, diff2) > 0.5;
+    };
     for (let i = 0; i < length; i++) {
       const element = this.shapes[i];
       if (i == playerIndx) {
         element.draw(gl);
         continue;
       }
-      const cPos = Vec3.make(this.cChunk.x + element.pos.x, element.pos.y, this.cChunk.y + element.pos.z);
-      const diff2 = Vec3.normalize(Vec3.make(
-        cPos.x - cameraPos.x,
-        cPos.y - cameraPos.y,
-        cPos.z - cameraPos.z
-      ));
-      if (Vec3.dot(forward, diff2) > 0)
+      if (checkPoint(Vec3.make(element.pos.x - this.WIDTH, element.pos.y, element.pos.z + this.HEIGHT))) {
         element.draw(gl);
+        continue;
+      }
+      if (checkPoint(Vec3.make(element.pos.x + this.WIDTH, element.pos.y, element.pos.z + this.HEIGHT))) {
+        element.draw(gl);
+        continue;
+      }
+      if (checkPoint(Vec3.make(element.pos.x - this.WIDTH, element.pos.y, element.pos.z - this.HEIGHT))) {
+        element.draw(gl);
+        continue;
+      }
+      if (checkPoint(Vec3.make(element.pos.x + this.WIDTH, element.pos.y, element.pos.z - this.HEIGHT))) {
+        element.draw(gl);
+        continue;
+      }
     }
   }
 };
@@ -2432,14 +2454,15 @@ var AsteroidHandler = class {
     );
     this.asteroids[this.asteroids.length - 1].vel = vel;
   }
-  addAttackRover(pos, rover) {
+  addAttackRover(pos, rover, roverVel = Vec3.make(0, 0, 0)) {
     const f = () => 0.5 - Math.random();
     const offset_pos = Vec3.multScalar(Vec3.make(f(), f(), f()), 100);
     const offset_vel = Vec3.multScalar(Vec3.make(f(), f(), f()), 0);
     const scale = Math.floor(2 + Math.random() * 5);
     const indxVao = Math.floor(Math.random() * this.vaos.length);
     const fPos = Vec3.add(pos, offset_pos);
-    const vel = Vec3.normalize(Vec3.add(Vec3.sub(rover, fPos), offset_vel));
+    const predRover = Vec3.add(rover, Vec3.multScalar(roverVel, 6));
+    const vel = Vec3.normalize(Vec3.add(Vec3.sub(predRover, fPos), offset_vel));
     if (this.verticesVao[indxVao].length < 2) throw new Error("Vertices length cannot be less than 2");
     this.asteroids.push(
       new Shape(fPos, Vec3.make(scale, scale, scale), this.shader, this.vaos[indxVao], this.nIndicesVao[indxVao], new Float32Array(this.verticesVao[indxVao]))
@@ -2670,8 +2693,8 @@ var Rover = class extends Shape {
     this.shapes[1].pos = this.pointTopRight.pos;
     this.shapes[2].pos = this.pointBottomLeft.pos;
     this.shapes[3].pos = this.pointBottomRight.pos;
-    this.pos = Vec3.make(0, 0, 0);
-    this.pos.copy(this.pointBottomLeft.pos);
+    this.pos = Vec3.copy(this.pointBottomLeft.pos);
+    this.vel = Vec3.copy(this.pointTopLeft.vel);
   }
   drawSmallOnes(gl) {
     this.shapes.forEach((e) => e.draw(gl));
@@ -2938,8 +2961,10 @@ var Game = class {
     if (this.moveVector.y > 0)
       this.pSystem.add(this.player.pos, Vec3.multScalar(this.player.cDir, -1), pSprinting ? 2 : 1, this.time, 0.1, 0.9);
     if (Math.random() > 1 - SPAWN_ASTEROID_PROB) {
-      if (Math.random() > 0.8)
-        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z), this.rover.pos);
+      if (Math.random() > 0.9)
+        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z), this.rover.pos, this.rover.vel);
+      if (Math.random() > 0.9)
+        this.aSystem.addAttackRover(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z), this.player.pos, this.player.vel);
       else this.aSystem.add(Vec3.make(this.player.pos.x, this.player.pos.y + 200, this.player.pos.z));
     }
     this.total_time += dt;
@@ -2949,7 +2974,7 @@ var Game = class {
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.time, dt);
     this.skybox.update(gl, this.pCamera);
     this.rover.update(dt * 0.01, this.perlinFloor, this.perlin3d);
-    updateEntitiesPhysics([this.player, ...this.aSystem.asteroids], dt);
+    updateEntitiesPhysics([this.player], dt);
     this.light.updateWorldData();
     this.player.updateWorldData();
     this.mouseMoveVector = Vec2.make(0, 0);
@@ -2963,7 +2988,7 @@ var Game = class {
     shader.bind(gl);
     gl.uniformMatrix4fv(shader.getUniform(gl, "matViewProj"), false, matViewProj.values);
     gl.uniform3f(shader.getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
-    gl.uniform3f(shader.getUniform(gl, "lightPos"), this.light.pos.x, this.light.pos.y, this.light.pos.z);
+    gl.uniform3f(shader.getUniform(gl, "lightDir"), 1, 1, 0);
     gl.uniform3f(shader.getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     shader.unbind(gl);
   }
@@ -2998,12 +3023,17 @@ var Game = class {
     this.skybox.draw(gl);
     gl.disable(gl.DEPTH_TEST);
     this.crossair.draw(gl);
-    gl.finish();
-    this.perlinFloor.updateSwaps(gl);
-    const error = gl.getError();
+    let error = gl.getError();
     if (error !== gl.NO_ERROR) {
       console.error("WebGL Error:", error);
       throw new Error("opengl said something went wrong");
+    }
+    gl.finish();
+    this.perlinFloor.updateSwaps(gl);
+    error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+      console.error("WebGL Error:", error);
+      throw new Error("opengl said something went wrong in the perlinFloor thingy");
     }
   }
 };

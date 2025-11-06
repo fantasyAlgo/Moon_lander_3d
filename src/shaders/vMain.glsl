@@ -18,7 +18,7 @@ out vec2 vOutUV;
 void main(){
   vec4 model_pos = matWorld * vec4(vPos, 1.0);
   float noise_height = vUV.x;
-  model_pos.y += noise_height*0.005f;
+  model_pos.x += (0.5f-noise_height)*0.05f;
 
   vec4 posView = model_pos;
   
