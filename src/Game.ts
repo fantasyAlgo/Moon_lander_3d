@@ -126,6 +126,7 @@ export class Game {
     this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["rover"] = loadModel(gl, models["rover"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["bullet"] = loadModel(gl, models["bullet"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
 
     gl.viewport(0, 0, this.width, this.height);
 
@@ -148,7 +149,8 @@ export class Game {
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
     this.rover = new Rover(Vec3.make(60, 20, 70), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
-    this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, CUBE_VERTICES);
+    console.log("bullet: ", models["bullet"].indices)
+    this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["bullet"], models["bullet"].indices.length, models["bullet"].vertices );
     this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
   }
 
@@ -222,6 +224,7 @@ export class Game {
 
   }
   handleMouseMovement(e : MouseEvent){
+    console.log("e: ", e.x, e.y)
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1.0;
   }
@@ -317,7 +320,8 @@ export class Game {
 
     this.shaders["light"].bind(gl);
     gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl,"matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), 0.5, 0.5, 0.5);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     this.shaders["light"].unbind(gl);
 
     this.shaders["main"].bind(gl);

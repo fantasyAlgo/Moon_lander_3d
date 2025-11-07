@@ -11,7 +11,7 @@ import { Shape } from "./Shape";
 export class BulletHandler {
   static MAX_CUNCURRENT_BULLETS : number = 2;
   static MAX_TIME : number = 200;
-  static BULLET_SIZE : Vec3 = Vec3.make(0.3, 0.3, 1.0);
+  static BULLET_SIZE : Vec3 = Vec3.make(1.0, 1.0, 1.0);
 
 
 

@@ -121,7 +121,7 @@ async function getShaders() {
 async function getModels(){
   const model_source = "../models";
   const models_names = [
-    "lander", "sphere", "rover", "roverConvex"
+    "lander", "sphere", "rover", "roverConvex", "bullet"
   ];
   let object: { [Name: string]: ModelData} = {};
   for (let i = 0; i < models_names.length; i++)
@@ -214,9 +214,8 @@ document.addEventListener("keyup", (e) => {
 });
 
 document.addEventListener("mousemove", (e) => {
-  if (document.pointerLockElement === canvas) {
+  if (game.isRunning)
     game.handleMouseMovement(e);
-  }
 });
 
 document.addEventListener("mousedown", (e : MouseEvent) => {

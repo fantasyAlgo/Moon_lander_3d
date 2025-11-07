@@ -1401,19 +1401,26 @@ var Camera = class {
   perpective;
   lookAtMatrix;
   offset_pos;
+  theta = 0;
+  phi = 0;
   constructor(initial_pos, width, height, Fov, zNear, zFar) {
     this.perpective = Mat4x4.perspective(height / width, Fov, zNear, zFar);
     this.pos = initial_pos;
     this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
   }
   update(mouseMoveVec, player_pos, camera_dist, dt) {
-    const SENSIBILITY = 0.25;
+    const SENSIBILITY = 5e-3;
+    this.theta += mouseMoveVec.x * dt * SENSIBILITY;
+    this.phi += mouseMoveVec.y * dt * SENSIBILITY;
+    this.phi = this.phi < 1e-3 ? 1e-3 : this.phi > Math.PI - 1e-3 ? Math.PI - 1e-3 : this.phi;
+    this.forward = Vec3.make(
+      Math.cos(this.theta) * Math.sin(this.phi),
+      Math.cos(this.phi),
+      Math.sin(this.theta) * Math.sin(this.phi)
+    );
+    this.forward.multScalar(-1);
     this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
-    this.forward = Vec3.normalize(Vec3.sub(player_pos, this.pos));
     const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
-    const newMouseVec = Mat4x4.multVec4(moveMatrix, Vec4.make(mouseMoveVec.x, mouseMoveVec.y, 0, 1));
-    this.forward = Vec3.add(this.forward, Vec3.multScalar(newMouseVec.convertToVec3(), SENSIBILITY * dt * 0.01));
-    this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
     const offset = Mat4x4.multVec4(moveMatrix, Vec4.make(0.3, 0.5, 0, 1));
     this.offset_pos = Vec3.add(this.pos, Vec3.make(offset.x, offset.y, offset.z));
     this.lookAtMatrix = this.getLookAt();
@@ -2355,7 +2362,7 @@ function convexHull(vertices) {
   }
   let indices = [];
   let mapV = /* @__PURE__ */ new Map();
-  const WHITE = Vec3.make(0.3, 0.3, 0.3);
+  const WHITE = Vec3.make(0.2, 0.2, 0.2);
   const vNull = Vec3.make(-1e3, 1e5, -1e3);
   for (let f of faces) {
     if (!mapV.has(f.i)) {
@@ -2787,7 +2794,7 @@ var BulletHandler = class _BulletHandler {
   }
   static MAX_CUNCURRENT_BULLETS = 2;
   static MAX_TIME = 200;
-  static BULLET_SIZE = Vec3.make(0.3, 0.3, 1);
+  static BULLET_SIZE = Vec3.make(1, 1, 1);
   bullets = [];
   reset() {
     this.bullets = [];
@@ -2906,6 +2913,7 @@ var Game = class {
     this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["rover"] = loadModel(gl, models["rover"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
+    this.vaos["bullet"] = loadModel(gl, models["bullet"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     gl.viewport(0, 0, this.width, this.height);
     this.shapes = [];
     this.player = new Player(
@@ -2932,7 +2940,8 @@ var Game = class {
     this.aSystem = new AsteroidHandler(gl, this.shaders["main"], 10);
     this.skybox = new Cubemap(gl, this.shaders["cubemap"], quodVertices, textures, "random");
     this.rover = new Rover(Vec3.make(60, 20, 70), Vec3.make(5, 5, 5), this.shaders["main"], this.vaos["rover"], models["rover"].indices.length, models["roverConvex"].vertices);
-    this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, CUBE_VERTICES);
+    console.log("bullet: ", models["bullet"].indices);
+    this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["bullet"], models["bullet"].indices.length, models["bullet"].vertices);
     this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
   }
   loaded = false;
@@ -3023,6 +3032,7 @@ var Game = class {
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
   handleMouseMovement(e) {
+    console.log("e: ", e.x, e.y);
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1;
   }
@@ -3092,7 +3102,8 @@ var Game = class {
     this.setShaderUniform(gl, this.shaders["particle"], matViewProj);
     this.shaders["light"].bind(gl);
     gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), this.light.color.x, this.light.color.y, this.light.color.z);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), 0.5, 0.5, 0.5);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     this.shaders["light"].unbind(gl);
     this.shaders["main"].bind(gl);
     gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), this.player.isAiming ? 1 : 0);
@@ -3253,7 +3264,8 @@ async function getModels() {
     "lander",
     "sphere",
     "rover",
-    "roverConvex"
+    "roverConvex",
+    "bullet"
   ];
   let object = {};
   for (let i = 0; i < models_names.length; i++)
@@ -3325,9 +3337,8 @@ document.addEventListener("keyup", (e) => {
   game.handleKeyUp(e);
 });
 document.addEventListener("mousemove", (e) => {
-  if (document.pointerLockElement === canvas) {
+  if (game.isRunning)
     game.handleMouseMovement(e);
-  }
 });
 document.addEventListener("mousedown", (e) => {
   if (game.isRunning) {
