@@ -241,7 +241,7 @@ export class Game {
 
   update(gl : WebGL2RenderingContext, dt : number) {
     console.log("rover: ", this.rover.deathTime);
-    this.isRunning = !(this.player.deathTime > 600.0 || this.rover.deathTime > 14.0);
+    this.isRunning = !(this.player.deathTime > 600.0 || this.rover.deathTime > 7.0);
     this.time += dt;
     const maxBoostTimer = 400;
     if (this.boostTimer >= 0)

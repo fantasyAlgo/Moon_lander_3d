@@ -107,7 +107,7 @@ export class AsteroidHandler {
 
   update(particleSystem : ParticleSystem, perlin : Perlin3d, perlinFloor : PerlinFloor, player : Player, bulletHandler : BulletHandler, rover : Rover, time : number, dt : number){
     for (let i = 0; i < this.asteroids.length; i++) {
-      this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25*dt)); 
+      this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.2*dt)); 
       this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2.0*this.asteroids[i].scale.x, time, 0.2, 1.0);
       const coll : AsteroidCollision = this.checkCollision(i, perlin, perlinFloor, player, rover, bulletHandler);

@@ -24,7 +24,7 @@ export async function loadObj(url: string): Promise<ModelData> {
   let lst : CoupledVertex[] = [];
   let objIndices = Object;
   let indices : number[] = [];
-  const WHITE_COLOR = Vec3.make(0.5, 0.5, 0.5);
+  const WHITE_COLOR = Vec3.make(1.0, 1.0, 1.0);
   for (let line of lines){
     const words = line.split(" ");
     if (words[0] == "v"){

@@ -242,7 +242,7 @@ export class PerlinFloor {
     const checkPoint = (p : Vec3) => {
       const cPos = Vec3.make(this.cChunk.x + p.x, p.y, this.cChunk.y+p.z);
       const diff = Vec3.normalize(Vec3.sub(cPos, cameraPos));
-      return Vec3.dot(forward, diff) > 0.5;
+      return Vec3.dot(forward, diff) > 0.6;
     }
 
     for (let i = 0; i < length; i++) {

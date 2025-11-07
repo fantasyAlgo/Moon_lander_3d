@@ -1802,7 +1802,7 @@ var PerlinFloor = class {
     const checkPoint = (p) => {
       const cPos = Vec3.make(this.cChunk.x + p.x, p.y, this.cChunk.y + p.z);
       const diff2 = Vec3.normalize(Vec3.sub(cPos, cameraPos));
-      return Vec3.dot(forward, diff2) > 0.5;
+      return Vec3.dot(forward, diff2) > 0.6;
     };
     for (let i = 0; i < length; i++) {
       const element = this.shapes[i];
@@ -2252,7 +2252,7 @@ async function loadObj(url) {
   let lst = [];
   let objIndices = Object;
   let indices = [];
-  const WHITE_COLOR = Vec3.make(0.5, 0.5, 0.5);
+  const WHITE_COLOR = Vec3.make(1, 1, 1);
   for (let line of lines) {
     const words = line.split(" ");
     if (words[0] == "v") {
@@ -2462,7 +2462,7 @@ var AsteroidHandler = class {
   }
   update(particleSystem, perlin, perlinFloor, player, bulletHandler, rover, time, dt) {
     for (let i = 0; i < this.asteroids.length; i++) {
-      this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.25 * dt));
+      this.asteroids[i].pos = Vec3.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, 0.2 * dt));
       this.asteroids[i].updateWorldData(3);
       particleSystem.add(this.asteroids[i].pos, Vec3.multScalar(this.asteroids[i].vel, -1), 2 * this.asteroids[i].scale.x, time, 0.2, 1);
       const coll = this.checkCollision(i, perlin, perlinFloor, player, rover, bulletHandler);
@@ -3037,7 +3037,7 @@ var Game = class {
   }
   update(gl, dt) {
     console.log("rover: ", this.rover.deathTime);
-    this.isRunning = !(this.player.deathTime > 600 || this.rover.deathTime > 40);
+    this.isRunning = !(this.player.deathTime > 600 || this.rover.deathTime > 7);
     this.time += dt;
     const maxBoostTimer = 400;
     if (this.boostTimer >= 0)

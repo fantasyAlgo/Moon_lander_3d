@@ -19,6 +19,7 @@ out vec4 outputColor;
 void main(){
   float ambient = 0.01f + clamp(vOutPos.y*0.01f, -0.5, 0.1);
 
+
   float noise_height = texture(u_noiseTex, vOutUV*2.0f).r;
 
   vec3 normal = normalize(vOutNormal);
@@ -30,8 +31,9 @@ void main(){
   vec3 reflectionDirection = reflect(-lightDirN, normal );
   float specAmount = pow(max(dot(viewDirection, reflectionDirection), 0.0f), 16.0f);
   float specular = specAmount*specularLight;
-
-  vec3 light = lightColor*(0.3f*diffuse + ambient + specular  + noise_height*0.1f) ;
+  
+  float noise_strength = 0.01f*(21.0f - 20.0f*vOutColor.x);
+  vec3 light = lightColor*(0.3f*diffuse + ambient + specular  + noise_height*noise_strength) ;
   outputColor = vec4(vOutColor, 1.0f) * vec4(light, 1.0);
   if (allowTransparency == 1) outputColor.a = 0.1;
   //outputColor = vec4(vOutNormal, 1.0)*vec4(lightColor, 1.0) +  0.01f*diffuse + 0.0001f*vOutColor.x;
