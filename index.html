@@ -63,7 +63,7 @@
         .subtitle {
             font-size: 1.1em;
             color: #b0b0b0;
-            margin-bottom: 50px;
+            margin-bottom: 10px;
             font-weight: 300;
             letter-spacing: 1px;
         }
@@ -324,6 +324,14 @@
                 opacity: 0;
             }
         }
+        #overlay {
+          position: absolute;
+          left: 45%;
+          top: 10px;
+        }
+        #overlay span {
+          font-size : 40px;
+        }
     </style>
 </head>
 <body>
@@ -335,6 +343,9 @@
         <div class="landing-content">
             <h1>Moon landing 3d</h1>
             <p class="subtitle">Trying to port the original 2d moonlanding game into 3d</p>
+            <p class = "subtitle" id = "best_score"></p>
+            <br>
+
             
             <div class="container">
                 <h1>Get Ready for the Adventure!</h1>
@@ -377,6 +388,9 @@
     </div>
     <div id="gameContainer">
         <canvas id="demo-canvas"></canvas>
+        <div id="overlay">
+          <div><span id="time"></span></div>
+        </div>
     </div>
     <script src="dist/bundle.js"></script>
     

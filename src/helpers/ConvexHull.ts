@@ -84,6 +84,6 @@ export function convexHull(vertices : Vec3[]){
       new CoupledVertex(vNull, vNull, vNull, Vec2.make(0,0))
     );
   }
-  console.log(data, indices)
+  //console.log(data, indices)
   return new ModelData(webglVerticesFromCoupledVertices(data), new Uint16Array(indices));
 }

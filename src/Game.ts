@@ -75,7 +75,7 @@ export class Game {
   crossair : Crosshair;
 
 
-  constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object, textures : Object){
+  constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object, textures : Object, public textNodes : Object){
     this.loaded = true;
     this.width = width;
     this.height = height;
@@ -240,7 +240,7 @@ export class Game {
 
 
   update(gl : WebGL2RenderingContext, dt : number) {
-    console.log("rover: ", this.rover.deathTime);
+    this.textNodes["time"].nodeValue = (this.time/100.0).toFixed(2);
     this.isRunning = !(this.player.deathTime > 600.0 || this.rover.deathTime > 7.0);
     this.time += dt;
     const maxBoostTimer = 400;

@@ -2,6 +2,7 @@ import { Game } from "./Game.ts";
 import { showError } from "./helpers/glHelpers.ts";
 import { Mat4x4 } from "./glMath/mat4x4.ts";
 import { loadObj, ModelData } from "./helpers/objLoader.ts";
+import { getCookie, setCookie } from "./helpers/cookieHelpers.ts"
 
 async function loadText(url: string): Promise<string> {
   const response = await fetch(url);
@@ -40,8 +41,13 @@ function saveInput() {
 let game : Game;
 let canvas : HTMLCanvasElement;
 
-function initGame(shaders : Object, models : Object, textures : Object){
-  console.log(models["lander"]);
+
+const best_score : string | null = getCookie("best_score");
+const scoreElement : HTMLElement | null = document.getElementById('best_score');
+if (scoreElement != null && best_score != null)
+  scoreElement.innerHTML = "best score: " + (Number(best_score)/100.0).toFixed(2);
+
+function initGame(shaders : Object, models : Object, textures : Object, textNodes : Object){
   canvas = document.getElementById("demo-canvas") as HTMLCanvasElement;
   if (!canvas){
     showError("Canvas nope");
@@ -57,7 +63,7 @@ function initGame(shaders : Object, models : Object, textures : Object){
   canvas.height = window.innerHeight;
    
   if (game == undefined)
-    game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
+    game = new Game(gl, canvas.width, canvas.height, shaders, models, textures, textNodes);
   else game.reset(gl);
 
   let lastTime = performance.now();
@@ -82,7 +88,18 @@ function initGame(shaders : Object, models : Object, textures : Object){
       gameContainer.classList.remove('active');
       landingPage.classList.remove('hidden');
       loadButton.disabled = false;
-      document.exitPointerLock()
+      document.exitPointerLock();
+
+      let cookie = getCookie("best_score");
+      if (cookie == undefined) setCookie("best_score", ""+game.total_time, 100);
+      console.log("cookie: ", cookie )
+      if (Number(cookie) < game.total_time)
+        setCookie("best_score", ""+game.total_time, 100);
+
+      cookie = getCookie("best_score");
+      if (scoreElement != null && cookie != null)
+        scoreElement.innerHTML = "best score: " + (Number(cookie)/100.0).toFixed(2);
+      
     }
   }
   if (game.isRunning)
@@ -109,6 +126,20 @@ async function getModels(){
   let object: { [Name: string]: ModelData} = {};
   for (let i = 0; i < models_names.length; i++)
     object[models_names[i]] = await loadObj(model_source.concat("/", models_names[i], ".obj"));
+  return object;
+}
+
+function getNodes() {
+  const idNames = [
+    "time"
+  ];
+
+  let object : { [Name : string] : Text} = {};
+  idNames.forEach((id : string) => {
+    const element = document.querySelector("#".concat(id));
+    object[id] = document.createTextNode("");
+    element?.appendChild(object[id]);
+  });
   return object;
 }
 
@@ -150,13 +181,14 @@ async function loadGame() {
       let shaders = await getShaders();
       let models = await getModels();
       let textures = await getImagesAsBitmap();
+      let textNodes = getNodes();
 
       //await new Promise(resolve => setTimeout(resolve, 300));
       gameContainer.classList.add('active');
       
       //await new Promise(resolve => setTimeout(resolve, 100));
 
-      initGame(shaders, models, textures);
+      initGame(shaders, models, textures, textNodes);
     } catch (error) {
         console.error('Error loading game:', error);
         progressText.textContent = 'Error loading game';

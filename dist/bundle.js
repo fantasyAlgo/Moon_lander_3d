@@ -2392,7 +2392,6 @@ function convexHull(vertices) {
       new CoupledVertex(vNull, vNull, vNull, Vec2.make(0, 0))
     );
   }
-  console.log(data, indices);
   return new ModelData(webglVerticesFromCoupledVertices(data), new Uint16Array(indices));
 }
 
@@ -2864,40 +2863,8 @@ var Crosshair = class {
 
 // src/Game.ts
 var Game = class {
-  loaded = false;
-  time = 0;
-  isRunning = true;
-  cubeVertices;
-  tableVertices;
-  cubeIndices;
-  tableIndices;
-  floorBuffer;
-  chunk_pos;
-  vaos;
-  shaders;
-  perlinFloor;
-  total_time;
-  shapes;
-  width;
-  height;
-  moveVector;
-  mouseMoveVector;
-  lastMousePos;
-  isShiftPressed;
-  boostTimer;
-  light;
-  Fov;
-  pCamera;
-  perlin3d;
-  noiseTexture;
-  player;
-  rover;
-  pSystem;
-  aSystem;
-  bSystem;
-  skybox;
-  crossair;
-  constructor(gl, width, height, shaders, models, textures) {
+  constructor(gl, width, height, shaders, models, textures, textNodes) {
+    this.textNodes = textNodes;
     this.loaded = true;
     this.width = width;
     this.height = height;
@@ -2968,6 +2935,39 @@ var Game = class {
     this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["cube"], CUBE_INDICES.length, CUBE_VERTICES);
     this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
   }
+  loaded = false;
+  time = 0;
+  isRunning = true;
+  cubeVertices;
+  tableVertices;
+  cubeIndices;
+  tableIndices;
+  floorBuffer;
+  chunk_pos;
+  vaos;
+  shaders;
+  perlinFloor;
+  total_time;
+  shapes;
+  width;
+  height;
+  moveVector;
+  mouseMoveVector;
+  lastMousePos;
+  isShiftPressed;
+  boostTimer;
+  light;
+  Fov;
+  pCamera;
+  perlin3d;
+  noiseTexture;
+  player;
+  rover;
+  pSystem;
+  aSystem;
+  bSystem;
+  skybox;
+  crossair;
   reset(gl) {
     this.pSystem.reset(gl);
     this.player.reset(Vec3.make(60, 0, 60));
@@ -3036,7 +3036,7 @@ var Game = class {
     if (e.button == 2) this.player.isAiming = false;
   }
   update(gl, dt) {
-    console.log("rover: ", this.rover.deathTime);
+    this.textNodes["time"].nodeValue = (this.time / 100).toFixed(2);
     this.isRunning = !(this.player.deathTime > 600 || this.rover.deathTime > 7);
     this.time += dt;
     const maxBoostTimer = 400;
@@ -3125,6 +3125,27 @@ var Game = class {
   }
 };
 
+// src/helpers/cookieHelpers.ts
+function setCookie(name, value, days) {
+  let expires = "";
+  if (days) {
+    const date = /* @__PURE__ */ new Date();
+    date.setTime(date.getTime() + days * 24 * 60 * 60 * 1e3);
+    expires = "; expires=" + date.toUTCString();
+  }
+  document.cookie = name + "=" + (value || "") + expires + "; path=/";
+}
+function getCookie(name) {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(";");
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === " ") c = c.substring(1);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length);
+  }
+  return null;
+}
+
 // src/main.ts
 async function loadText(url) {
   const response = await fetch(url);
@@ -3152,8 +3173,11 @@ function saveInput() {
 }
 var game;
 var canvas;
-function initGame(shaders, models, textures) {
-  console.log(models["lander"]);
+var best_score = getCookie("best_score");
+var scoreElement = document.getElementById("best_score");
+if (scoreElement != null && best_score != null)
+  scoreElement.innerHTML = "best score: " + (Number(best_score) / 100).toFixed(2);
+function initGame(shaders, models, textures, textNodes) {
   canvas = document.getElementById("demo-canvas");
   if (!canvas) {
     showError("Canvas nope");
@@ -3167,7 +3191,7 @@ function initGame(shaders, models, textures) {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   if (game == void 0)
-    game = new Game(gl, canvas.width, canvas.height, shaders, models, textures);
+    game = new Game(gl, canvas.width, canvas.height, shaders, models, textures, textNodes);
   else game.reset(gl);
   let lastTime = performance.now();
   let dt;
@@ -3189,6 +3213,14 @@ function initGame(shaders, models, textures) {
       landingPage.classList.remove("hidden");
       loadButton.disabled = false;
       document.exitPointerLock();
+      let cookie = getCookie("best_score");
+      if (cookie == void 0) setCookie("best_score", "" + game.total_time, 100);
+      console.log("cookie: ", cookie);
+      if (Number(cookie) < game.total_time)
+        setCookie("best_score", "" + game.total_time, 100);
+      cookie = getCookie("best_score");
+      if (scoreElement != null && cookie != null)
+        scoreElement.innerHTML = "best score: " + (Number(cookie) / 100).toFixed(2);
     }
   }
   if (game.isRunning)
@@ -3228,6 +3260,18 @@ async function getModels() {
     object[models_names[i]] = await loadObj(model_source.concat("/", models_names[i], ".obj"));
   return object;
 }
+function getNodes() {
+  const idNames = [
+    "time"
+  ];
+  let object = {};
+  idNames.forEach((id) => {
+    const element = document.querySelector("#".concat(id));
+    object[id] = document.createTextNode("");
+    element?.appendChild(object[id]);
+  });
+  return object;
+}
 async function getImagesAsBitmap() {
   const model_source = "../images";
   const image_names = [
@@ -3260,8 +3304,9 @@ async function loadGame() {
     let shaders = await getShaders();
     let models = await getModels();
     let textures = await getImagesAsBitmap();
+    let textNodes = getNodes();
     gameContainer.classList.add("active");
-    initGame(shaders, models, textures);
+    initGame(shaders, models, textures, textNodes);
   } catch (error) {
     console.error("Error loading game:", error);
     progressText.textContent = "Error loading game";
