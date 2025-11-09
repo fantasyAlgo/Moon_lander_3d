@@ -144,7 +144,7 @@ function getNodes() {
 }
 
 async function getImagesAsBitmap(){
-  const model_source = "../images";
+  const model_source = "images";
   const image_names = [
     "random1",
     "random2",
