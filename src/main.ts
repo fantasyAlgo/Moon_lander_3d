@@ -119,7 +119,7 @@ async function getShaders() {
     return object;
 }
 async function getModels(){
-  const model_source = "/models";
+  const model_source = "models";
   const models_names = [
     "lander", "rover", "roverConvex", "bullet",
   ];
