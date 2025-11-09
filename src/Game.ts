@@ -73,6 +73,7 @@ export class Game {
   bSystem : BulletHandler;
   skybox : Cubemap;
   crossair : Crosshair;
+  targetRay : Shape;
 
 
   constructor(gl : WebGL2RenderingContext, width: number, height : number, shaders : Object, models : Object, textures : Object, public textNodes : Object){
@@ -124,7 +125,6 @@ export class Game {
 
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["rover"] = loadModel(gl, models["rover"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["bullet"] = loadModel(gl, models["bullet"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
 
@@ -152,6 +152,8 @@ export class Game {
     console.log("bullet: ", models["bullet"].indices)
     this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["bullet"], models["bullet"].indices.length, models["bullet"].vertices );
     this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
+
+    this.targetRay = new Shape(Vec3.make(0,0,0), Vec3.make(1, 100, 1), this.shaders["main"], this.vaos["cube"], CUBE_INDICES.length);
   }
 
   reset(gl : WebGL2RenderingContext){
@@ -224,7 +226,6 @@ export class Game {
 
   }
   handleMouseMovement(e : MouseEvent){
-    console.log("e: ", e.x, e.y)
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1.0;
   }
@@ -232,8 +233,8 @@ export class Game {
   handleMouseDown(e : MouseEvent){
     if (e.button == 2)
       this.player.isAiming = true;
-    if (e.button == 0)
-      this.bSystem.add(this.player.pos, this.pCamera.forward, this.time);
+    if (e.button == 0 && !this.player.dead)
+      this.bSystem.add(Vec3.add(this.pCamera.offset_pos, Vec3.multScalar(this.pCamera.forward, this.player.camera_dist)), this.pCamera.forward, this.time);
 
   }
   handleMouseUp(e : MouseEvent){
@@ -267,7 +268,7 @@ export class Game {
 
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
-    this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist/1.6, dt);
+    this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist/1.6, 1.0);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.rover, this.time, dt);
     this.skybox.update(gl, this.pCamera);
@@ -283,11 +284,16 @@ export class Game {
     this.mouseMoveVector = Vec2.make(0,0);
 
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
-    if (coll.collided)
-      this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 0.001;
+    if (coll.collided && this.player.vel.y < 0){
+      const center = this.perlinFloor.getValue(this.perlin3d, this.player.pos.x, this.player.pos.z)+0.8;
+      this.player.pos.y = center + 0.2;
+      this.player.vel.y *= -0.2;
+
+    }
 
     this.bSystem.update(dt, this.perlin3d, this.perlinFloor, this.pSystem, this.time);
     this.pSystem.update(gl, this.time);
+    this.targetRay.pos = Vec3.make(this.rover.target.x, 0.0, this.rover.target.y);
 
   }
 
@@ -320,13 +326,11 @@ export class Game {
 
     this.shaders["light"].bind(gl);
     gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl,"matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), 0.5, 0.5, 0.5);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), 0.2431, 0.15294, 0.1372);
     gl.uniform3f(this.shaders["light"].getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     this.shaders["light"].unbind(gl);
 
-    this.shaders["main"].bind(gl);
-    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), this.player.isAiming ? 1 : 0); // dumb thing, but hey webgl
-    this.shaders["main"].unbind(gl);
+
 
     this.shapes.forEach(element => {
       element.draw(gl);
@@ -340,8 +344,18 @@ export class Game {
     this.pSystem.draw(gl);
     this.bSystem.draw(gl);
     this.rover.draw(gl);
-    //this.rover.drawSmallOnes(gl);
+
+
+    this.shaders["main"].bind(gl);
+    gl.enable(gl.BLEND);
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), 1); // dumb thing, but hey webgl
+    this.targetRay.draw(gl);
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), this.player.isAiming ? 1 : 0); // dumb thing, but hey webgl
     this.player.draw(gl);
+
+    gl.disable(gl.BLEND);
+    this.shaders["main"].unbind(gl);
+
 
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);

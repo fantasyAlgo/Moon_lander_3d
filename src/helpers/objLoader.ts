@@ -36,9 +36,9 @@ export async function loadObj(url: string): Promise<ModelData> {
     }
     if (words[0] == "vn"){
       normals.push(Vec3.make(
-        Number(words[1]),
-        Number(words[2]),
-        Number(words[3]),
+        -Number(words[1]),
+        -Number(words[2]),
+        -Number(words[3]),
       ));
     }
     if (words[0] == "vt"){

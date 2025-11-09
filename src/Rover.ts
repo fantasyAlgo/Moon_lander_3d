@@ -38,7 +38,7 @@ class Constraint {
 
 
 
-const FLOOR_DIST = 1.0;
+const FLOOR_DIST = 0.0;
 const SPRING_FORCE = 0.7;
 const DAMPING_FORCE = 0.05;
 const UP_VEC : Vec3 = Vec3.make(0, 1, 0);
@@ -57,6 +57,7 @@ export class Rover extends Shape{
 
   diagonal : number;
   target : Vec2 = Vec2.make(0,0); 
+  targetDistance : number = 10.0;
   spin : number = 0.0;
 
 
@@ -92,7 +93,8 @@ export class Rover extends Shape{
       this.constraints.push(new Constraint(this.pointBottomLeft, this.pointTopRight, this.diagonal));
       this.constraints.push(new Constraint(this.pointBottomRight, this.pointTopLeft, this.diagonal));
 
-      this.target = Vec2.multScalar(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random()), 500.0);
+      this.target = Vec2.add(Vec2.make(this.pos.x, this.pos.z), Vec2.multScalar(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random()), this.targetDistance));
+      this.targetDistance *= 2.0;
   }
   reset(pos : Vec3){
     this.pos = pos;
@@ -150,8 +152,10 @@ export class Rover extends Shape{
     this.pointTopRight.vel.clamp(-2, 2, -100, 100, -2, 2);
     this.pointTopLeft.vel.clamp(-2, 2, -100, 100, -2, 2);
 
-    if (dist < 1)
-      this.target = Vec2.multScalar(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random()), 500.0);
+    if (dist < 3){
+      this.target = Vec2.add(Vec2.make(this.pos.x, this.pos.z), Vec2.multScalar(Vec2.make(1.0 - 2.0*Math.random(), 1.0 - 2.0*Math.random()), this.targetDistance));
+      this.targetDistance *= 2.0;
+    }
 
 
     if (this.pointTopLeft.vel.z > 2.0) this.pointTopLeft.vel.z = 2.0;
@@ -198,7 +202,12 @@ export class Rover extends Shape{
     if (this.dead) return;
     const matWorldUniform = this.program.getUniform(gl, "matWorld")
     //console.log(this);
-    let matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
+    let matWorld : Mat4x4;
+    const topRightSub = Vec3.sub(this.pointBottomLeft.pos, this.pointTopLeft.pos);
+    if (Vec3.sub(this.pointBottomLeft.pos, this.pointTopLeft.pos).y > topRightSub.y)
+      matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
+    else matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, Vec3.add(this.pointTopLeft.pos, topRightSub));
+
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
     this.model = matWorld;
 

@@ -121,7 +121,7 @@ async function getShaders() {
 async function getModels(){
   const model_source = "../models";
   const models_names = [
-    "lander", "sphere", "rover", "roverConvex", "bullet"
+    "lander", "rover", "roverConvex", "bullet",
   ];
   let object: { [Name: string]: ModelData} = {};
   for (let i = 0; i < models_names.length; i++)
@@ -203,22 +203,26 @@ loadButton.addEventListener('click', loadGame);
 
 
 document.addEventListener("keydown", (e) => {
+  if (game == undefined) return;
   if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyDown(e);
 });
 document.addEventListener("keyup", (e) => {
+  if (game == undefined) return;
   if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyUp(e);
 });
 
 document.addEventListener("mousemove", (e) => {
+  if (game == undefined) return;
   if (game.isRunning)
     game.handleMouseMovement(e);
 });
 
 document.addEventListener("mousedown", (e : MouseEvent) => {
+  if (game == undefined) return;
   if (game.isRunning){
     game.handleMouseDown(e);
   }
@@ -226,6 +230,7 @@ document.addEventListener("mousedown", (e : MouseEvent) => {
 });
 
 document.addEventListener("mouseup", (e : MouseEvent) => {
+  if (game == undefined) return;
   if (game.isRunning)
     game.handleMouseUp(e);
 
@@ -235,6 +240,7 @@ document.addEventListener("mouseup", (e : MouseEvent) => {
 
 
 document.addEventListener("click", (e : MouseEvent) => {
+  if (game == undefined) return;
   if (game.isRunning){
     canvas.requestPointerLock();
   }

@@ -469,8 +469,8 @@ var CUBE_VERTICES = new Float32Array([
   -1,
   1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   1,
@@ -481,8 +481,8 @@ var CUBE_VERTICES = new Float32Array([
   -1,
   1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   1,
@@ -493,8 +493,8 @@ var CUBE_VERTICES = new Float32Array([
   1,
   1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   1,
@@ -505,21 +505,21 @@ var CUBE_VERTICES = new Float32Array([
   1,
   1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   1,
   0,
   0,
   // 3
-  // Back face (normal: 0, 0, -1)           0.0, 0.0,
+  // Back face (normal:10,10,1-1)           0.0, 0.0,
   -1,
   -1,
   -1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   -1,
@@ -530,8 +530,8 @@ var CUBE_VERTICES = new Float32Array([
   1,
   -1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   -1,
@@ -542,8 +542,8 @@ var CUBE_VERTICES = new Float32Array([
   1,
   -1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   -1,
@@ -554,21 +554,21 @@ var CUBE_VERTICES = new Float32Array([
   -1,
   -1,
   1,
-  0,
-  0,
+  1,
+  1,
   0,
   0,
   -1,
   0,
   0,
   // 7
-  // Top face (normal: 0, 1, 0)             0.0, 0.0,
+  // Top face (normal: 1, 1, 1)             0.0, 0.0,
   -1,
   1,
   -1,
-  0,
   1,
-  0,
+  1,
+  1,
   0,
   1,
   0,
@@ -577,14 +577,6 @@ var CUBE_VERTICES = new Float32Array([
   -1,
   1,
   1,
-  0,
-  1,
-  0,
-  0,
-  1,
-  0,
-  0,
-  0,
   1,
   1,
   1,
@@ -592,39 +584,36 @@ var CUBE_VERTICES = new Float32Array([
   1,
   0,
   0,
+  0,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  0,
   1,
   0,
   0,
   0,
   1,
-  1,
-  -1,
-  0,
-  1,
-  0,
-  0,
-  1,
-  0,
-  0,
-  0,
-  // Bottom face (normal: 0, -1, 0)         0.0, 0.0,
-  -1,
-  -1,
-  -1,
-  0,
-  1,
-  0,
-  0,
-  -1,
-  0,
-  0,
-  0,
   1,
   -1,
-  -1,
+  1,
+  1,
+  1,
   0,
   1,
   0,
+  0,
+  0,
+  // Bottom face (norma1: 1, 11, 0)         0.0, 0.0,
+  -1,
+  -1,
+  -1,
+  1,
+  1,
+  1,
   0,
   -1,
   0,
@@ -632,10 +621,21 @@ var CUBE_VERTICES = new Float32Array([
   0,
   1,
   -1,
+  -1,
+  1,
+  1,
   1,
   0,
-  1,
+  -1,
   0,
+  0,
+  0,
+  1,
+  -1,
+  1,
+  1,
+  1,
+  1,
   0,
   -1,
   0,
@@ -644,20 +644,20 @@ var CUBE_VERTICES = new Float32Array([
   -1,
   -1,
   1,
-  0,
   1,
-  0,
+  1,
+  1,
   0,
   -1,
   0,
   0,
   0,
-  // Right face (normal: 1, 0, 0)           0.0, 0.0,
+  // Right face (normal1 11 01 0)           0.0, 0.0,
   1,
   -1,
   -1,
-  0,
-  0,
+  1,
+  1,
   1,
   1,
   0,
@@ -667,19 +667,8 @@ var CUBE_VERTICES = new Float32Array([
   1,
   1,
   -1,
-  0,
-  0,
   1,
   1,
-  0,
-  0,
-  0,
-  0,
-  1,
-  1,
-  1,
-  0,
-  0,
   1,
   1,
   0,
@@ -687,33 +676,33 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   1,
-  -1,
+  1,
+  1,
+  1,
+  1,
+  1,
   1,
   0,
   0,
-  1,
-  1,
-  0,
-  0,
-  0,
-  0,
-  // Left face (normal: -1, 0, 0)           0.0, 0.0,
-  -1,
-  -1,
-  -1,
   0,
   0,
   1,
   -1,
-  0,
-  0,
-  0,
-  0,
-  -1,
-  -1,
+  1,
+  1,
+  1,
+  1,
   1,
   0,
   0,
+  0,
+  0,
+  // Left face (normal:1-11 01 0)           0.0, 0.0,
+  -1,
+  -1,
+  -1,
+  1,
+  1,
   1,
   -1,
   0,
@@ -721,10 +710,10 @@ var CUBE_VERTICES = new Float32Array([
   0,
   0,
   -1,
+  -1,
   1,
   1,
-  0,
-  0,
+  1,
   1,
   -1,
   0,
@@ -733,9 +722,20 @@ var CUBE_VERTICES = new Float32Array([
   0,
   -1,
   1,
+  1,
+  1,
+  1,
+  1,
   -1,
   0,
   0,
+  0,
+  0,
+  -1,
+  1,
+  -1,
+  1,
+  1,
   1,
   -1,
   0,
@@ -1329,107 +1329,6 @@ var Mat4x4 = class _Mat4x4 {
   }
 };
 
-// src/glMath/vec2.ts
-var Vec2 = class _Vec2 {
-  x;
-  y;
-  distance;
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-    this.distance = Math.sqrt(x * x + y * y);
-  }
-  clamp(xMin, xMax, yMin, yMax) {
-    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
-    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
-  }
-  equal(v) {
-    const EPS = 1e-3;
-    return Math.abs(v.x - this.x) < EPS && Math.abs(v.y - this.y) < EPS;
-  }
-  copy(v) {
-    this.x = v.x;
-    this.y = v.y;
-    this.distance = v.distance;
-  }
-  static normalize(v) {
-    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
-    return new _Vec2(v.x / v.distance, v.y / v.distance);
-  }
-  static distance(v1, v2) {
-    const x = v1.x - v2.x;
-    const y = v1.y - v2.y;
-    return Math.sqrt(x * x + y * y);
-  }
-  static signDistance(v1, v2) {
-    const x = v1.x - v2.x;
-    const y = v1.y - v2.y;
-    return x + y;
-  }
-  static make(x, y) {
-    return new _Vec2(x, y);
-  }
-  static add(v1, v2) {
-    return new _Vec2(v1.x + v2.x, v1.y + v2.y);
-  }
-  static sub(v1, v2) {
-    return new _Vec2(v1.x - v2.x, v1.y - v2.y);
-  }
-  static mult(v1, v2) {
-    return new _Vec2(v1.x * v2.x, v1.y * v2.y);
-  }
-  static multScalar(v1, s) {
-    return new _Vec2(v1.x * s, v1.y * s);
-  }
-  static div(v1, v2) {
-    if (v2.x == 0 || v2.y == 0) throw new Error("v2 has some 0");
-    return new _Vec2(v1.x / v2.x, v1.y / v2.y);
-  }
-  static clone(v1) {
-    return new _Vec2(v1.x, v1.y);
-  }
-  static dot(v1, v2) {
-    return v1.x * v2.x + v1.y * v2.y;
-  }
-};
-
-// src/Camera.ts
-var UP_VEC = Vec3.make(0, 1, 0);
-var Camera = class {
-  pos;
-  forward;
-  perpective;
-  lookAtMatrix;
-  offset_pos;
-  theta = 0;
-  phi = 0;
-  constructor(initial_pos, width, height, Fov, zNear, zFar) {
-    this.perpective = Mat4x4.perspective(height / width, Fov, zNear, zFar);
-    this.pos = initial_pos;
-    this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
-  }
-  update(mouseMoveVec, player_pos, camera_dist, dt) {
-    const SENSIBILITY = 5e-3;
-    this.theta += mouseMoveVec.x * dt * SENSIBILITY;
-    this.phi += mouseMoveVec.y * dt * SENSIBILITY;
-    this.phi = this.phi < 1e-3 ? 1e-3 : this.phi > Math.PI - 1e-3 ? Math.PI - 1e-3 : this.phi;
-    this.forward = Vec3.make(
-      Math.cos(this.theta) * Math.sin(this.phi),
-      Math.cos(this.phi),
-      Math.sin(this.theta) * Math.sin(this.phi)
-    );
-    this.forward.multScalar(-1);
-    this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
-    const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
-    const offset = Mat4x4.multVec4(moveMatrix, Vec4.make(0.3, 0.5, 0, 1));
-    this.offset_pos = Vec3.add(this.pos, Vec3.make(offset.x, offset.y, offset.z));
-    this.lookAtMatrix = this.getLookAt();
-  }
-  getLookAt() {
-    return Mat4x4.LookAtRH(this.offset_pos, Vec3.add(this.offset_pos, this.forward), UP_VEC);
-  }
-};
-
 // src/glMath/Quat.ts
 var Quat = class _Quat {
   r;
@@ -1547,6 +1446,107 @@ var Shape = class {
       }
     }
     return bV;
+  }
+};
+
+// src/glMath/vec2.ts
+var Vec2 = class _Vec2 {
+  x;
+  y;
+  distance;
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.distance = Math.sqrt(x * x + y * y);
+  }
+  clamp(xMin, xMax, yMin, yMax) {
+    this.x = this.x < xMin ? xMin : this.x > xMax ? xMax : this.x;
+    this.y = this.y < yMin ? yMin : this.y > yMax ? yMax : this.y;
+  }
+  equal(v) {
+    const EPS = 1e-3;
+    return Math.abs(v.x - this.x) < EPS && Math.abs(v.y - this.y) < EPS;
+  }
+  copy(v) {
+    this.x = v.x;
+    this.y = v.y;
+    this.distance = v.distance;
+  }
+  static normalize(v) {
+    if (v.distance == 0) throw new Error("v is 0, cannot normalize");
+    return new _Vec2(v.x / v.distance, v.y / v.distance);
+  }
+  static distance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    return Math.sqrt(x * x + y * y);
+  }
+  static signDistance(v1, v2) {
+    const x = v1.x - v2.x;
+    const y = v1.y - v2.y;
+    return x + y;
+  }
+  static make(x, y) {
+    return new _Vec2(x, y);
+  }
+  static add(v1, v2) {
+    return new _Vec2(v1.x + v2.x, v1.y + v2.y);
+  }
+  static sub(v1, v2) {
+    return new _Vec2(v1.x - v2.x, v1.y - v2.y);
+  }
+  static mult(v1, v2) {
+    return new _Vec2(v1.x * v2.x, v1.y * v2.y);
+  }
+  static multScalar(v1, s) {
+    return new _Vec2(v1.x * s, v1.y * s);
+  }
+  static div(v1, v2) {
+    if (v2.x == 0 || v2.y == 0) throw new Error("v2 has some 0");
+    return new _Vec2(v1.x / v2.x, v1.y / v2.y);
+  }
+  static clone(v1) {
+    return new _Vec2(v1.x, v1.y);
+  }
+  static dot(v1, v2) {
+    return v1.x * v2.x + v1.y * v2.y;
+  }
+};
+
+// src/Camera.ts
+var UP_VEC = Vec3.make(0, 1, 0);
+var Camera = class {
+  pos;
+  forward;
+  perpective;
+  lookAtMatrix;
+  offset_pos;
+  theta = 0;
+  phi = 0;
+  constructor(initial_pos, width, height, Fov, zNear, zFar) {
+    this.perpective = Mat4x4.perspective(height / width, Fov, zNear, zFar);
+    this.pos = initial_pos;
+    this.forward = Vec3.normalize(Vec3.make(0.5, 0.2, -1));
+  }
+  update(mouseMoveVec, player_pos, camera_dist, dt) {
+    const SENSIBILITY = 5e-3;
+    this.theta += mouseMoveVec.x * dt * SENSIBILITY;
+    this.phi += mouseMoveVec.y * dt * SENSIBILITY;
+    this.phi = this.phi < 1e-3 ? 1e-3 : this.phi > Math.PI - 1e-3 ? Math.PI - 1e-3 : this.phi;
+    this.forward = Vec3.make(
+      Math.cos(this.theta) * Math.sin(this.phi),
+      Math.cos(this.phi),
+      Math.sin(this.theta) * Math.sin(this.phi)
+    );
+    this.forward.multScalar(-1);
+    this.pos = Vec3.add(player_pos, Vec3.multScalar(this.forward, -camera_dist));
+    const moveMatrix = Mat4x4.T(Mat4x4.LookAtRH(Vec3.make(0, 0, 0), this.forward, UP_VEC));
+    const offset = Mat4x4.multVec4(moveMatrix, Vec4.make(0.3, 0.5, 0, 1));
+    this.offset_pos = Vec3.add(this.pos, Vec3.make(offset.x, offset.y, offset.z));
+    this.lookAtMatrix = this.getLookAt();
+  }
+  getLookAt() {
+    return Mat4x4.LookAtRH(this.offset_pos, Vec3.add(this.offset_pos, this.forward), UP_VEC);
   }
 };
 
@@ -2271,9 +2271,9 @@ async function loadObj(url) {
     }
     if (words[0] == "vn") {
       normals.push(Vec3.make(
-        Number(words[1]),
-        Number(words[2]),
-        Number(words[3])
+        -Number(words[1]),
+        -Number(words[2]),
+        -Number(words[3])
       ));
     }
     if (words[0] == "vt") {
@@ -2540,7 +2540,7 @@ var AsteroidHandler = class {
 // src/Settings.ts
 var diff = localStorage.getItem("difficulty");
 var levels = [];
-console.log(diff);
+if (diff == void 0) diff = "hard";
 if (diff == "easy") levels = [5e-3, 0.5, 5, 1e10];
 if (diff == "medium") levels = [0.01, 0.3, 4, 5318008];
 if (diff == "hard") levels = [0.02, 0.2, 2, 8008];
@@ -2650,7 +2650,7 @@ var Constraint = class {
     return diff2 > EPS;
   }
 };
-var FLOOR_DIST = 1;
+var FLOOR_DIST = 0;
 var SPRING_FORCE = 0.7;
 var DAMPING_FORCE = 0.05;
 var UP_VEC3 = Vec3.make(0, 1, 0);
@@ -2676,7 +2676,8 @@ var Rover = class extends Shape {
     this.constraints.push(new Constraint(this.pointBottomLeft, this.pointBottomRight, this.scale.x));
     this.constraints.push(new Constraint(this.pointBottomLeft, this.pointTopRight, this.diagonal));
     this.constraints.push(new Constraint(this.pointBottomRight, this.pointTopLeft, this.diagonal));
-    this.target = Vec2.multScalar(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random()), 500);
+    this.target = Vec2.add(Vec2.make(this.pos.x, this.pos.z), Vec2.multScalar(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random()), this.targetDistance));
+    this.targetDistance *= 2;
   }
   dead = false;
   deathTime = 0;
@@ -2688,6 +2689,7 @@ var Rover = class extends Shape {
   constraints;
   diagonal;
   target = Vec2.make(0, 0);
+  targetDistance = 10;
   spin = 0;
   reset(pos) {
     this.pos = pos;
@@ -2736,8 +2738,10 @@ var Rover = class extends Shape {
     this.pointTopRight.vel = Vec3.add(this.pointTopRight.vel, Vec3.make(dir.x, 0, dir.y));
     this.pointTopRight.vel.clamp(-2, 2, -100, 100, -2, 2);
     this.pointTopLeft.vel.clamp(-2, 2, -100, 100, -2, 2);
-    if (dist < 1)
-      this.target = Vec2.multScalar(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random()), 500);
+    if (dist < 3) {
+      this.target = Vec2.add(Vec2.make(this.pos.x, this.pos.z), Vec2.multScalar(Vec2.make(1 - 2 * Math.random(), 1 - 2 * Math.random()), this.targetDistance));
+      this.targetDistance *= 2;
+    }
     if (this.pointTopLeft.vel.z > 2) this.pointTopLeft.vel.z = 2;
     if (this.pointTopRight.vel.z > 2) this.pointTopLeft.vel.z = 2;
     this.applyPerlin(this.pointTopRight, perlinNoise, perlin, dt);
@@ -2773,7 +2777,11 @@ var Rover = class extends Shape {
   draw(gl) {
     if (this.dead) return;
     const matWorldUniform = this.program.getUniform(gl, "matWorld");
-    let matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
+    let matWorld;
+    const topRightSub = Vec3.sub(this.pointBottomLeft.pos, this.pointTopLeft.pos);
+    if (Vec3.sub(this.pointBottomLeft.pos, this.pointTopLeft.pos).y > topRightSub.y)
+      matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, this.pointBottomLeft.pos);
+    else matWorld = Mat4x4.rotFromPlane(this.pointTopLeft.pos, this.pointTopRight.pos, Vec3.add(this.pointTopLeft.pos, topRightSub));
     matWorld = Mat4x4.multMatrix(matWorld, Mat4x4.transpose(this.pos));
     this.model = matWorld;
     this.program.bind(gl);
@@ -2794,7 +2802,7 @@ var BulletHandler = class _BulletHandler {
   }
   static MAX_CUNCURRENT_BULLETS = 2;
   static MAX_TIME = 200;
-  static BULLET_SIZE = Vec3.make(1, 1, 1);
+  static BULLET_SIZE = Vec3.make(0.3, 0.3, 0.3);
   bullets = [];
   reset() {
     this.bullets = [];
@@ -2911,7 +2919,6 @@ var Game = class {
     }
     this.vaos["cube"] = create3dPosColorInterleavedVao(gl, cubeVertices, cubeIndices, vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["lander"] = loadModel(gl, models["lander"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
-    this.vaos["sphere"] = loadModel(gl, models["sphere"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["rover"] = loadModel(gl, models["rover"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     this.vaos["bullet"] = loadModel(gl, models["bullet"], vPosLoc, vColorLoc, vNormalLoc, vUVLoc);
     gl.viewport(0, 0, this.width, this.height);
@@ -2943,6 +2950,7 @@ var Game = class {
     console.log("bullet: ", models["bullet"].indices);
     this.bSystem = new BulletHandler(this.shaders["light"], this.vaos["bullet"], models["bullet"].indices.length, models["bullet"].vertices);
     this.crossair = new Crosshair(gl, quodVertices, this.shaders["crossair"]);
+    this.targetRay = new Shape(Vec3.make(0, 0, 0), Vec3.make(1, 100, 1), this.shaders["main"], this.vaos["cube"], CUBE_INDICES.length);
   }
   loaded = false;
   time = 0;
@@ -2977,6 +2985,7 @@ var Game = class {
   bSystem;
   skybox;
   crossair;
+  targetRay;
   reset(gl) {
     this.pSystem.reset(gl);
     this.player.reset(Vec3.make(60, 0, 60));
@@ -3032,15 +3041,14 @@ var Game = class {
     this.moveVector.clamp(-1, 1, -1, 1, -1, 1);
   }
   handleMouseMovement(e) {
-    console.log("e: ", e.x, e.y);
     this.mouseMoveVector = Vec2.make(e.movementX, e.movementY);
     this.mouseMoveVector.y *= -1;
   }
   handleMouseDown(e) {
     if (e.button == 2)
       this.player.isAiming = true;
-    if (e.button == 0)
-      this.bSystem.add(this.player.pos, this.pCamera.forward, this.time);
+    if (e.button == 0 && !this.player.dead)
+      this.bSystem.add(Vec3.add(this.pCamera.offset_pos, Vec3.multScalar(this.pCamera.forward, this.player.camera_dist)), this.pCamera.forward, this.time);
   }
   handleMouseUp(e) {
     if (e.button == 2) this.player.isAiming = false;
@@ -3066,7 +3074,7 @@ var Game = class {
     }
     this.total_time += dt;
     this.player.update(this.moveVector, this.pCamera, this.boostTimer >= 0 && this.isShiftPressed && this.boostTimer <= maxBoostTimer, dt);
-    this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist / 1.6, dt);
+    this.pCamera.update(this.mouseMoveVector, this.player.pos, !this.player.isAiming ? this.player.camera_dist : this.player.camera_dist / 1.6, 1);
     this.perlinFloor.update(gl, this.perlin3d, this.player.pos);
     this.aSystem.update(this.pSystem, this.perlin3d, this.perlinFloor, this.player, this.bSystem, this.rover, this.time, dt);
     this.skybox.update(gl, this.pCamera);
@@ -3077,10 +3085,14 @@ var Game = class {
     this.rover.updateWorldData();
     this.mouseMoveVector = Vec2.make(0, 0);
     const coll = Collision.checkPerlinCollision(this.player, this.perlin3d, this.perlinFloor);
-    if (coll.collided)
-      this.player.vel.y = this.player.vel.y > 0 ? this.player.vel.y : 1e-3;
+    if (coll.collided && this.player.vel.y < 0) {
+      const center = this.perlinFloor.getValue(this.perlin3d, this.player.pos.x, this.player.pos.z) + 0.8;
+      this.player.pos.y = center + 0.2;
+      this.player.vel.y *= -0.2;
+    }
     this.bSystem.update(dt, this.perlin3d, this.perlinFloor, this.pSystem, this.time);
     this.pSystem.update(gl, this.time);
+    this.targetRay.pos = Vec3.make(this.rover.target.x, 0, this.rover.target.y);
   }
   setShaderUniform(gl, shader, matViewProj) {
     shader.bind(gl);
@@ -3102,12 +3114,9 @@ var Game = class {
     this.setShaderUniform(gl, this.shaders["particle"], matViewProj);
     this.shaders["light"].bind(gl);
     gl.uniformMatrix4fv(this.shaders["light"].getUniform(gl, "matViewProj"), false, matViewProj.values);
-    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), 0.5, 0.5, 0.5);
+    gl.uniform3f(this.shaders["light"].getUniform(gl, "lightColor"), 0.2431, 0.15294, 0.1372);
     gl.uniform3f(this.shaders["light"].getUniform(gl, "cameraPos"), this.pCamera.pos.x, this.pCamera.pos.y, this.pCamera.pos.z);
     this.shaders["light"].unbind(gl);
-    this.shaders["main"].bind(gl);
-    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), this.player.isAiming ? 1 : 0);
-    this.shaders["main"].unbind(gl);
     this.shapes.forEach((element) => {
       element.draw(gl);
     });
@@ -3116,7 +3125,14 @@ var Game = class {
     this.pSystem.draw(gl);
     this.bSystem.draw(gl);
     this.rover.draw(gl);
+    this.shaders["main"].bind(gl);
+    gl.enable(gl.BLEND);
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), 1);
+    this.targetRay.draw(gl);
+    gl.uniform1i(this.shaders["main"].getUniform(gl, "allowTransparency"), this.player.isAiming ? 1 : 0);
     this.player.draw(gl);
+    gl.disable(gl.BLEND);
+    this.shaders["main"].unbind(gl);
     gl.depthFunc(gl.LEQUAL);
     this.skybox.draw(gl);
     gl.disable(gl.DEPTH_TEST);
@@ -3262,7 +3278,6 @@ async function getModels() {
   const model_source = "../models";
   const models_names = [
     "lander",
-    "sphere",
     "rover",
     "roverConvex",
     "bullet"
@@ -3327,29 +3342,35 @@ async function loadGame() {
 }
 loadButton.addEventListener("click", loadGame);
 document.addEventListener("keydown", (e) => {
+  if (game == void 0) return;
   if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyDown(e);
 });
 document.addEventListener("keyup", (e) => {
+  if (game == void 0) return;
   if (!game.isRunning) return;
   e.preventDefault();
   game.handleKeyUp(e);
 });
 document.addEventListener("mousemove", (e) => {
+  if (game == void 0) return;
   if (game.isRunning)
     game.handleMouseMovement(e);
 });
 document.addEventListener("mousedown", (e) => {
+  if (game == void 0) return;
   if (game.isRunning) {
     game.handleMouseDown(e);
   }
 });
 document.addEventListener("mouseup", (e) => {
+  if (game == void 0) return;
   if (game.isRunning)
     game.handleMouseUp(e);
 });
 document.addEventListener("click", (e) => {
+  if (game == void 0) return;
   if (game.isRunning) {
     canvas.requestPointerLock();
   }

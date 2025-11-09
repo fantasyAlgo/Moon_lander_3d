@@ -35,6 +35,6 @@ void main(){
   float noise_strength = 0.01f*(21.0f - 20.0f*vOutColor.x);
   vec3 light = lightColor*(0.3f*diffuse + ambient + specular  + noise_height*noise_strength) ;
   outputColor = vec4(vOutColor, 1.0f) * vec4(light, 1.0);
-  if (allowTransparency == 1) outputColor.a = 0.1;
+  if (allowTransparency == 1) outputColor.a = 0.4;
   //outputColor = vec4(vOutNormal, 1.0)*vec4(lightColor, 1.0) +  0.01f*diffuse + 0.0001f*vOutColor.x;
 }
