@@ -21,6 +21,8 @@ Here's a list of the features present
 - Obj object loader
 - Bullet system
 - A simple Math library that implements Quaternions, a non-performant recursive algorithm to calcuate determinants, and all the math i needed to make this game.
+- Cookie system to keep track of the best score.
+- Third person camera implementation
 
 There are lots of features i want to add btw, here's a short list in order of priority
 - biomes
